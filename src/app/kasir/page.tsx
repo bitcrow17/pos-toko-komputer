@@ -13,10 +13,9 @@ import {
   parseCashInput,
   type DiscountType,
 } from "@/lib/kasir-calculations";
-import { mockProducts } from "@/src/data/mockData";
+import { useApp } from "@/src/context/AppContext";
 import {
   buildCatalog,
-  deductStockForCart,
   filterCatalog,
   generateProductCode,
   getAvailableStock,
@@ -65,8 +64,11 @@ function createHoldId(): string {
 }
 
 export default function KasirPage() {
-  const [products, setProducts] = useState<CatalogProduct[]>(() =>
-    buildCatalog(mockProducts),
+  const { products: globalProducts, reduceStock } = useApp();
+
+  const catalogProducts = useMemo(
+    () => buildCatalog(globalProducts),
+    [globalProducts],
   );
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,8 +92,8 @@ export default function KasirPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = useMemo(
-    () => filterCatalog(products, searchQuery),
-    [products, searchQuery],
+    () => filterCatalog(catalogProducts, searchQuery),
+    [catalogProducts, searchQuery],
   );
 
   const totals = useMemo(
@@ -147,7 +149,11 @@ export default function KasirPage() {
 
   function getFirstSelectableProduct(): CatalogProduct | undefined {
     return filteredProducts.find((product) => {
-      const available = getAvailableStock(products, product.id, cartItems);
+      const available = getAvailableStock(
+        catalogProducts,
+        product.id,
+        cartItems,
+      );
       return product.stock > 0 && available > 0;
     });
   }
@@ -188,7 +194,12 @@ export default function KasirPage() {
   }, [isCatalogModalOpen]);
 
   function updateQuantity(productId: string, newQty: number) {
-    const result = updateQuantityLogic(cartItems, products, productId, newQty);
+    const result = updateQuantityLogic(
+      cartItems,
+      catalogProducts,
+      productId,
+      newQty,
+    );
     if (result.alert) {
       showAlert(result.alert.message);
       return;
@@ -273,9 +284,11 @@ export default function KasirPage() {
       return;
     }
 
-    setProducts((prev) => deductStockForCart(prev, cartItems));
+    cartItems.forEach((item) =>
+      reduceStock(item.productId, item.quantity),
+    );
     showAlert(
-      `Pembayaran OK.\nGrand Total: ${formatRupiah(totals.grandTotal)}\nKembalian: ${formatRupiah(changeAmount)}\nStok inventori telah dikurangi.`,
+      `Pembayaran OK.\nGrand Total: ${formatRupiah(totals.grandTotal)}\nKembalian: ${formatRupiah(changeAmount)}\nStok inventori global telah dikurangi.`,
     );
     clearCart();
     setIsTaxEnabled(false);
@@ -285,7 +298,7 @@ export default function KasirPage() {
 
   /** Demo: generate kode untuk urutan berikutnya */
   function demoGenerateNextCode() {
-    const nextSeq = products.length + 1;
+    const nextSeq = catalogProducts.length + 1;
     showAlert(`Kode barang berikutnya: ${generateProductCode(nextSeq)}`);
   }
 
@@ -438,7 +451,7 @@ export default function KasirPage() {
                         filteredProducts.map((product) => {
                           const outOfStock = product.stock <= 0;
                           const available = getAvailableStock(
-                            products,
+                            catalogProducts,
                             product.id,
                             cartItems,
                           );
@@ -567,7 +580,7 @@ export default function KasirPage() {
                   </tr>
                 ) : (
                   cartItems.map((item) => {
-                    const product = products.find(
+                    const product = catalogProducts.find(
                       (p) => p.id === item.productId,
                     );
                     const maxStock = product?.stock ?? item.quantity;

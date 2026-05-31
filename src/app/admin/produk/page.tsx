@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { mockProducts } from "@/src/data/mockData";
+import { useApp } from "@/src/context/AppContext";
 import {
-  createNextProductId,
   formatCodeOrSerial,
   inferHasFactorySerial,
   resolveSerialOrCode,
@@ -45,9 +44,7 @@ function formatRupiah(value: number): string {
 }
 
 export default function AdminProdukPage() {
-  const [products, setProducts] = useState<Product[]>(() =>
-    mockProducts.map((p) => ({ ...p })),
-  );
+  const { products, addProduct, updateProduct, deleteProduct } = useApp();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -80,14 +77,14 @@ export default function AdminProdukPage() {
     setStatusMessage(`Mode edit: ${product.name}`);
   }
 
-  function deleteProduct(id: string) {
+  function handleDeleteProduct(id: string) {
     const target = products.find((p) => p.id === id);
     if (!target) return;
 
     const ok = window.confirm(`Hapus produk "${target.name}"?`);
     if (!ok) return;
 
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    deleteProduct(id);
     if (editingId === id) resetForm();
     setStatusMessage(`Produk dihapus: ${target.name}`);
   }
@@ -133,11 +130,7 @@ export default function AdminProdukPage() {
     };
 
     if (isEditMode && editingId) {
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingId ? { ...p, ...payload, id: editingId } : p,
-        ),
-      );
+      updateProduct(editingId, payload);
       setStatusMessage(
         `Produk diperbarui. Kode/Serial: ${serialNumber ?? "(kosong)"}`,
       );
@@ -145,14 +138,9 @@ export default function AdminProdukPage() {
       return;
     }
 
-    const newProduct: Product = {
-      id: createNextProductId(products),
-      ...payload,
-    };
-
-    setProducts((prev) => [...prev, newProduct]);
+    addProduct(payload);
     setStatusMessage(
-      `Produk baru ditambah (${newProduct.id}). Kode/Serial: ${serialNumber ?? "(kosong)"}`,
+      `Produk baru ditambah. Kode/Serial: ${serialNumber ?? "(kosong)"}`,
     );
     resetForm();
   }
@@ -363,7 +351,10 @@ export default function AdminProdukPage() {
                   <button type="button" onClick={() => startEdit(product)}>
                     Edit
                   </button>{" "}
-                  <button type="button" onClick={() => deleteProduct(product.id)}>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProduct(product.id)}
+                  >
                     Hapus
                   </button>
                 </td>
