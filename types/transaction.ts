@@ -1,20 +1,19 @@
-/** Metode pembayaran transaksi */
-export type PaymentMethod =
-  | "cash" // tunai
-  | "transfer" // transfer bank
-  | "qris" // QRIS
-  | "debit" // kartu debit
-  | "credit" // kartu kredit
-  | "other"; // lainnya
+/** Baris item dalam transaksi yang sudah lunas */
+export interface TransactionItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+}
 
-/** Data transaksi penjualan */
+/** Transaksi penjualan yang sudah sukses / lunas */
 export interface Transaction {
-  /** ID unik transaksi */
+  /** Nomor nota, misal: INV-20241103-001 */
   id: string;
-  /** Tanggal transaksi (ISO date string) */
-  date: string;
-  /** Total harga dalam IDR (bilangan bulat) */
-  totalPrice: number;
-  /** Metode pembayaran */
-  paymentMethod: PaymentMethod;
+  /** Tanggal & waktu transaksi (ISO string) */
+  timestamp: string;
+  items: TransactionItem[];
+  totalHarga: number;
+  nominalBayar: number;
+  kembalian: number;
 }

@@ -11,15 +11,18 @@ import {
 import { mockProducts } from "@/src/data/mockData";
 import { createNextProductId } from "@/lib/admin-product";
 import type { Product } from "@/types/product";
+import type { Transaction } from "@/types/transaction";
 
 export type ProductInput = Omit<Product, "id">;
 
 export interface AppContextValue {
   products: Product[];
+  transactions: Transaction[];
   addProduct: (product: ProductInput) => void;
   updateProduct: (id: string, updates: ProductInput) => void;
   deleteProduct: (id: string) => void;
   reduceStock: (productId: string, quantity: number) => void;
+  addTransaction: (transaction: Transaction) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -28,6 +31,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>(() =>
     mockProducts.map((p) => ({ ...p })),
   );
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const addProduct = useCallback((product: ProductInput) => {
     setProducts((prev) => [
@@ -57,15 +61,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const addTransaction = useCallback((transaction: Transaction) => {
+    setTransactions((prev) => [transaction, ...prev]);
+  }, []);
+
   const value = useMemo(
     () => ({
       products,
+      transactions,
       addProduct,
       updateProduct,
       deleteProduct,
       reduceStock,
+      addTransaction,
     }),
-    [products, addProduct, updateProduct, deleteProduct, reduceStock],
+    [
+      products,
+      transactions,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      reduceStock,
+      addTransaction,
+    ],
   );
 
   return (

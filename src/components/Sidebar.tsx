@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/kasir", label: "Kasir / Penjualan" },
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/produk", label: "Manajemen Stok" },
+  { href: "/admin/transaksi", label: "Riwayat Transaksi" },
 ] as const;
 
 function isActivePath(pathname: string, href: string): boolean {

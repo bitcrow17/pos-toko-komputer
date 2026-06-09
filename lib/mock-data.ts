@@ -32,27 +32,63 @@ export const mockProducts: Product[] = [
 /** Data transaksi contoh untuk ringkasan dashboard */
 export const mockTransactions: Transaction[] = [
   {
-    id: "trx-001",
-    date: "2026-05-28",
-    totalPrice: 8_999_000,
-    paymentMethod: "transfer",
+    id: "INV-20260528-001",
+    timestamp: "2026-05-28T10:15:00.000Z",
+    items: [
+      {
+        productId: "prd-001",
+        productName: "Laptop ASUS VivoBook 15",
+        quantity: 1,
+        unitPrice: 8_999_000,
+      },
+    ],
+    totalHarga: 8_999_000,
+    nominalBayar: 9_000_000,
+    kembalian: 1_000,
   },
   {
-    id: "trx-002",
-    date: "2026-05-28",
-    totalPrice: 2_299_000,
-    paymentMethod: "qris",
+    id: "INV-20260528-002",
+    timestamp: "2026-05-28T14:30:00.000Z",
+    items: [
+      {
+        productId: "prd-002",
+        productName: "Monitor LG 24 inci",
+        quantity: 1,
+        unitPrice: 2_299_000,
+      },
+    ],
+    totalHarga: 2_299_000,
+    nominalBayar: 2_300_000,
+    kembalian: 1_000,
   },
   {
-    id: "trx-003",
-    date: "2026-05-27",
-    totalPrice: 1_199_000,
-    paymentMethod: "cash",
+    id: "INV-20260527-001",
+    timestamp: "2026-05-27T09:00:00.000Z",
+    items: [
+      {
+        productId: "prd-003",
+        productName: "SSD Samsung 1TB NVMe",
+        quantity: 1,
+        unitPrice: 1_199_000,
+      },
+    ],
+    totalHarga: 1_199_000,
+    nominalBayar: 1_200_000,
+    kembalian: 1_000,
   },
   {
-    id: "trx-004",
-    date: "2026-05-26",
-    totalPrice: 450_000,
-    paymentMethod: "debit",
+    id: "INV-20260526-001",
+    timestamp: "2026-05-26T16:45:00.000Z",
+    items: [
+      {
+        productId: "prd-003",
+        productName: "SSD Samsung 1TB NVMe",
+        quantity: 1,
+        unitPrice: 450_000,
+      },
+    ],
+    totalHarga: 450_000,
+    nominalBayar: 500_000,
+    kembalian: 50_000,
   },
 ];

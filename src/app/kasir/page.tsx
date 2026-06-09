@@ -13,7 +13,9 @@ import {
   parseCashInput,
   type DiscountType,
 } from "@/lib/kasir-calculations";
+import { generateInvoiceNumber } from "@/lib/transaction";
 import { useApp } from "@/src/context/AppContext";
+import type { TransactionItem } from "@/types/transaction";
 import {
   buildCatalog,
   filterCatalog,
@@ -64,7 +66,12 @@ function createHoldId(): string {
 }
 
 export default function KasirPage() {
-  const { products: globalProducts, reduceStock } = useApp();
+  const {
+    products: globalProducts,
+    transactions,
+    reduceStock,
+    addTransaction,
+  } = useApp();
 
   const catalogProducts = useMemo(
     () => buildCatalog(globalProducts),
@@ -287,8 +294,26 @@ export default function KasirPage() {
     cartItems.forEach((item) =>
       reduceStock(item.productId, item.quantity),
     );
+
+    const items: TransactionItem[] = cartItems.map((item) => ({
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitSellingPrice,
+    }));
+
+    const invoiceId = generateInvoiceNumber(transactions);
+    addTransaction({
+      id: invoiceId,
+      timestamp: new Date().toISOString(),
+      items,
+      totalHarga: totals.grandTotal,
+      nominalBayar: cashPaid,
+      kembalian: changeAmount,
+    });
+
     showAlert(
-      `Pembayaran OK.\nGrand Total: ${formatRupiah(totals.grandTotal)}\nKembalian: ${formatRupiah(changeAmount)}\nStok inventori global telah dikurangi.`,
+      `Pembayaran OK.\nNota: ${invoiceId}\nGrand Total: ${formatRupiah(totals.grandTotal)}\nKembalian: ${formatRupiah(changeAmount)}\nStok inventori global telah dikurangi.`,
     );
     clearCart();
     setIsTaxEnabled(false);
