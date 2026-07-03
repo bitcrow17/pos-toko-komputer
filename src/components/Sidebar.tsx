@@ -42,7 +42,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="fixed inset-y-0 left-0 z-40 flex w-56 flex-col border-r border-slate-800 bg-slate-950 text-slate-100 sm:w-64"
+      className="fixed inset-y-0 left-0 z-40 flex w-56 flex-col border-r border-slate-800 bg-slate-950 text-slate-100 print:hidden sm:w-64"
       aria-label="Navigasi utama"
     >
       <div className="border-b border-slate-800 px-5 py-5">

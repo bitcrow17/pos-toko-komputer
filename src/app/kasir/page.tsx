@@ -26,6 +26,8 @@ import {
 import type { CartItem } from "@/types/cart";
 import { getCartItemSubtotal } from "@/types/cart";
 import type { Customer } from "@/types/customer";
+import type { Transaction } from "@/types/transaction";
+import ReceiptModal from "@/src/components/ReceiptModal";
 
 interface HoldTransaction {
   id: string;
@@ -96,6 +98,8 @@ export default function KasirPage() {
     Record<string, string>
   >({});
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+  const [completedTransaction, setCompletedTransaction] =
+    useState<Transaction | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = useMemo(
@@ -303,18 +307,17 @@ export default function KasirPage() {
     }));
 
     const invoiceId = generateInvoiceNumber(transactions);
-    addTransaction({
+    const newTransaction: Transaction = {
       id: invoiceId,
       timestamp: new Date().toISOString(),
       items,
       totalHarga: totals.grandTotal,
       nominalBayar: cashPaid,
       kembalian: changeAmount,
-    });
-
-    showAlert(
-      `Pembayaran OK.\nNota: ${invoiceId}\nGrand Total: ${formatRupiah(totals.grandTotal)}\nKembalian: ${formatRupiah(changeAmount)}\nStok inventori global telah dikurangi.`,
-    );
+    };
+    addTransaction(newTransaction);
+    setCompletedTransaction(newTransaction);
+    setAlertMessage(null);
     clearCart();
     setIsTaxEnabled(false);
     setDiscountType("NOMINAL");
@@ -335,9 +338,10 @@ export default function KasirPage() {
     "rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500";
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-slate-100">
+    <>
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-slate-100 print:hidden">
       {/* Header + pencarian utama (lapisan depan) */}
-      <header className="relative z-50 shrink-0 border-b border-slate-800 bg-slate-900 px-5 py-3">
+      <header className="relative z-50 shrink-0 border-b border-slate-800 bg-slate-900 px-5 py-3 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
@@ -858,5 +862,14 @@ export default function KasirPage() {
         </aside>
       </div>
     </div>
+
+      {completedTransaction && (
+        <ReceiptModal
+          transaction={completedTransaction}
+          variant="success"
+          onClose={() => setCompletedTransaction(null)}
+        />
+      )}
+    </>
   );
 }

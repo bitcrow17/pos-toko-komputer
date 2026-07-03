@@ -14,7 +14,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {showSidebar && <Sidebar />}
       <main
-        className={`min-h-screen w-full ${showSidebar ? "pl-56 sm:pl-64" : ""}`}
+        className={`min-h-screen w-full print:pl-0 ${showSidebar ? "pl-56 sm:pl-64" : ""}`}
       >
         {children}
       </main>

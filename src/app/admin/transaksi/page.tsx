@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   getTransactionItemCount,
-  getTransactionItemSubtotal,
 } from "@/lib/transaction";
 import { useApp } from "@/src/context/AppContext";
+import ReceiptModal from "@/src/components/ReceiptModal";
 import type { Transaction } from "@/types/transaction";
 
 type TimeFilter =
@@ -141,112 +141,6 @@ function formatTimestamp(iso: string): string {
   }).format(new Date(iso));
 }
 
-function TransactionDetailModal({
-  transaction,
-  onClose,
-}: {
-  transaction: Transaction;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="nota-title"
-    >
-      <button
-        type="button"
-        aria-label="Tutup modal"
-        className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-slate-700 bg-white text-slate-900 shadow-2xl">
-        <div className="border-b border-dashed border-slate-300 px-6 py-5 text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-            Retail Komputer
-          </p>
-          <h2 id="nota-title" className="mt-1 text-lg font-bold">
-            Struk Belanja
-          </h2>
-          <p className="mt-2 font-mono text-sm text-slate-700">
-            {transaction.id}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {formatTimestamp(transaction.timestamp)}
-          </p>
-        </div>
-
-        <div className="px-6 py-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
-                <th className="pb-2 pr-2">Komponen</th>
-                <th className="pb-2 pr-2 text-right">Harga</th>
-                <th className="pb-2 pr-2 text-center">Qty</th>
-                <th className="pb-2 text-right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transaction.items.map((item) => (
-                <tr
-                  key={`${item.productId}-${item.unitPrice}`}
-                  className="border-b border-slate-100"
-                >
-                  <td className="py-2.5 pr-2 font-medium">{item.productName}</td>
-                  <td className="py-2.5 pr-2 text-right tabular-nums text-slate-600">
-                    {formatRupiah(item.unitPrice)}
-                  </td>
-                  <td className="py-2.5 pr-2 text-center tabular-nums">
-                    {item.quantity}
-                  </td>
-                  <td className="py-2.5 text-right tabular-nums font-medium">
-                    {formatRupiah(getTransactionItemSubtotal(item))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="border-t border-dashed border-slate-300 px-6 py-4">
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="font-semibold text-slate-700">Total</dt>
-              <dd className="tabular-nums font-bold">
-                {formatRupiah(transaction.totalHarga)}
-              </dd>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <dt>Nominal Bayar</dt>
-              <dd className="tabular-nums">
-                {formatRupiah(transaction.nominalBayar)}
-              </dd>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <dt>Kembalian</dt>
-              <dd className="tabular-nums">
-                {formatRupiah(transaction.kembalian)}
-              </dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="border-t border-slate-200 bg-slate-50 px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
-          >
-            Tutup
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function AdminTransaksiPage() {
   const { transactions } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
@@ -297,7 +191,8 @@ export default function AdminTransaksiPage() {
   );
 
   return (
-    <div className="p-6 sm:p-8">
+    <>
+    <div className="p-6 sm:p-8 print:hidden">
       <header className="mb-8">
         <h1 className="text-2xl font-semibold text-white">Riwayat Transaksi</h1>
         <p className="mt-1 text-sm text-slate-400">
@@ -444,13 +339,15 @@ export default function AdminTransaksiPage() {
           </table>
         </div>
       </div>
+    </div>
 
       {selectedTransaction && (
-        <TransactionDetailModal
+        <ReceiptModal
           transaction={selectedTransaction}
+          variant="detail"
           onClose={() => setSelectedTransaction(null)}
         />
       )}
-    </div>
+    </>
   );
 }

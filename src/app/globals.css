@@ -17,3 +17,97 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/* ── Print: hanya area struk yang tercetak ── */
+@media print {
+  @page {
+    margin: 8mm;
+  }
+
+  html[data-receipt-layout="thermal"] {
+    @page {
+      size: 80mm auto;
+      margin: 2mm;
+    }
+  }
+
+  html[data-receipt-layout="a4"] {
+    @page {
+      size: A4 portrait;
+      margin: 12mm;
+    }
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hanya struk yang tampil di kertas */
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt-print-area,
+  .receipt-print-area * {
+    visibility: visible;
+  }
+
+  aside,
+  header:not(.receipt-print-area *),
+  .receipt-modal-overlay,
+  .receipt-modal-actions,
+  .receipt-modal-banner {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .receipt-modal-root {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  .receipt-modal-root > div:not(.receipt-modal-overlay) {
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .receipt-print-area {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html[data-receipt-layout="thermal"] .receipt-print-area {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    font-size: 11px !important;
+  }
+
+  html[data-receipt-layout="a4"] .receipt-print-area {
+    width: 100% !important;
+    max-width: 186mm !important;
+    padding: 0 !important;
+  }
+}
