@@ -15,9 +15,28 @@ import type { Transaction } from "@/types/transaction";
 
 export type ProductInput = Omit<Product, "id">;
 
+export type UserRole = "admin" | "kasir";
+
+export interface CurrentUser {
+  username: string;
+  role: UserRole;
+}
+
+const HARDCODED_ACCOUNTS: {
+  username: string;
+  password: string;
+  role: UserRole;
+}[] = [
+  { username: "admin", password: "admin123", role: "admin" },
+  { username: "kasir", password: "kasir123", role: "kasir" },
+];
+
 export interface AppContextValue {
   products: Product[];
   transactions: Transaction[];
+  currentUser: CurrentUser | null;
+  login: (username: string, password: string) => boolean;
+  logout: () => void;
   addProduct: (product: ProductInput) => void;
   updateProduct: (id: string, updates: ProductInput) => void;
   deleteProduct: (id: string) => void;
@@ -32,6 +51,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     mockProducts.map((p) => ({ ...p })),
   );
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  const login = useCallback((username: string, password: string): boolean => {
+    const account = HARDCODED_ACCOUNTS.find(
+      (entry) =>
+        entry.username === username.trim() && entry.password === password,
+    );
+    if (!account) return false;
+
+    setCurrentUser({
+      username: account.username,
+      role: account.role,
+    });
+    return true;
+  }, []);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+  }, []);
 
   const addProduct = useCallback((product: ProductInput) => {
     setProducts((prev) => [
@@ -69,6 +107,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       products,
       transactions,
+      currentUser,
+      login,
+      logout,
       addProduct,
       updateProduct,
       deleteProduct,
@@ -78,6 +119,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       products,
       transactions,
+      currentUser,
+      login,
+      logout,
       addProduct,
       updateProduct,
       deleteProduct,
