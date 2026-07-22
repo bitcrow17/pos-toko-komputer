@@ -19,11 +19,14 @@ export function generateProductCode(sequence: number): string {
 export function buildCatalog(products: Product[]): CatalogProduct[] {
   return products.map((product, index) => {
     const productCode = generateProductCode(index + 1);
+    const storedBarcode = product.barcode?.trim();
     const hasFactorySerial = Boolean(product.serialNumber?.trim());
 
-    const barcode = hasFactorySerial
-      ? (`899${String(index + 1).padStart(10, "0")}` as string)
-      : productCode;
+    const barcode =
+      storedBarcode ||
+      (hasFactorySerial
+        ? `899${String(index + 1).padStart(10, "0")}`
+        : productCode);
 
     return {
       ...product,
@@ -31,6 +34,15 @@ export function buildCatalog(products: Product[]): CatalogProduct[] {
       barcode,
     };
   });
+}
+
+export function findProductByExactBarcode(
+  catalog: CatalogProduct[],
+  scannedCode: string,
+): CatalogProduct | undefined {
+  const code = scannedCode.trim();
+  if (!code) return undefined;
+  return catalog.find((product) => product.barcode === code);
 }
 
 export const catalogProducts: CatalogProduct[] = buildCatalog(mockProducts);
@@ -54,7 +66,7 @@ export function getAvailableStock(
   return product.stock - inCart;
 }
 
-/** Pencarian: nama, barcode, serial, kode barang (BRG-xxx), id internal */
+/** Pencarian: nama, barcode, id, serial, kode barang (BRG-xxx) */
 /** Kurangi stok sesuai qty di keranjang setelah transaksi selesai */
 export function deductStockForCart(
   catalog: CatalogProduct[],
@@ -78,14 +90,11 @@ export function filterCatalog(
   if (!q) return catalog;
 
   return catalog.filter((p) => {
-    const haystack = [
-      p.name,
-      p.barcode,
-      p.productCode,
-      p.id,
-      p.serialNumber ?? "",
-      p.category,
-    ]
+    if (p.name.toLowerCase().includes(q)) return true;
+    if (p.barcode.toLowerCase().includes(q)) return true;
+    if (p.id.toLowerCase().includes(q)) return true;
+
+    const haystack = [p.productCode, p.serialNumber ?? "", p.category]
       .join(" ")
       .toLowerCase();
 

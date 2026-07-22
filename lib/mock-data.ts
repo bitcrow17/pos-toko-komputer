@@ -10,6 +10,7 @@ export const mockProducts: Product[] = [
     purchasePrice: 7_500_000,
     sellingPrice: 8_999_000,
     stock: 5,
+    barcode: "8991234567890",
   },
   {
     id: "prd-002",
@@ -18,6 +19,7 @@ export const mockProducts: Product[] = [
     purchasePrice: 1_800_000,
     sellingPrice: 2_299_000,
     stock: 12,
+    barcode: "8999876543210",
   },
   {
     id: "prd-003",
@@ -26,6 +28,7 @@ export const mockProducts: Product[] = [
     purchasePrice: 950_000,
     sellingPrice: 1_199_000,
     stock: 20,
+    barcode: "8991122334455",
   },
 ];
 

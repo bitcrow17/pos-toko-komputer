@@ -66,3 +66,21 @@ export function inferHasFactorySerial(product: Product): boolean {
 export function formatCodeOrSerial(product: Product): string {
   return product.serialNumber?.trim() || "—";
 }
+
+/** Generate barcode EAN-style unik (prefix 899) untuk produk tanpa barcode fisik */
+export function generateRandomBarcode(existingProducts: Product[]): string {
+  const used = new Set(
+    existingProducts
+      .map((p) => p.barcode?.trim())
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const candidate = `899${String(
+      Math.floor(1_000_000_000 + Math.random() * 9_000_000_000),
+    )}`;
+    if (!used.has(candidate)) return candidate;
+  }
+
+  return `899${Date.now().toString().slice(-10)}`;
+}

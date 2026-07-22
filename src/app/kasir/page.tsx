@@ -19,6 +19,7 @@ import type { TransactionItem } from "@/types/transaction";
 import {
   buildCatalog,
   filterCatalog,
+  findProductByExactBarcode,
   generateProductCode,
   getAvailableStock,
   type CatalogProduct,
@@ -184,10 +185,31 @@ export default function KasirPage() {
   }
 
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addTopFilteredProductToCart();
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+
+    const scanned = searchQuery.trim();
+    if (scanned) {
+      const exactBarcodeMatch = findProductByExactBarcode(
+        catalogProducts,
+        scanned,
+      );
+      if (exactBarcodeMatch) {
+        const result = addToCartLogic(cartItems, exactBarcodeMatch);
+        if (result.alert) {
+          showAlert(result.alert.message);
+          return;
+        }
+        setCartItems(result.items);
+        setAlertMessage(null);
+        setSearchQuery("");
+        closeCatalogModal();
+        window.setTimeout(() => searchInputRef.current?.focus(), 0);
+        return;
+      }
     }
+
+    addTopFilteredProductToCart();
   }
 
   useEffect(() => {
@@ -407,7 +429,7 @@ export default function KasirPage() {
                 setSearchQuery(e.target.value);
                 setIsCatalogModalOpen(true);
               }}
-              placeholder="Ketik lalu Enter untuk item teratas — nama / barcode / serial / BRG"
+              placeholder="Scan barcode atau ketik nama / ID — Enter untuk tambah"
               aria-expanded={isCatalogModalOpen}
               aria-controls="catalog-dropdown"
               autoComplete="off"
@@ -442,7 +464,7 @@ export default function KasirPage() {
                       {filteredProducts.length} hasil
                     </span>
                     {" · "}
-                    Enter = tambah item teratas · Esc = tutup
+                    Enter = scan barcode / tambah item teratas · Esc = tutup
                   </p>
                   <button
                     type="button"

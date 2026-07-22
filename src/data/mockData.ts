@@ -10,6 +10,7 @@ export const mockProducts: Product[] = [
     sellingPrice: 12_000_000,
     stock: 4,
     serialNumber: "SN-ASU-45821",
+    barcode: "8991234567890",
   },
   {
     id: "PRD-002",
@@ -19,6 +20,7 @@ export const mockProducts: Product[] = [
     sellingPrice: 21_500_000,
     stock: 2,
     serialNumber: "SN-ROG-10293",
+    barcode: "8999876543210",
   },
   {
     id: "PRD-003",
@@ -28,6 +30,7 @@ export const mockProducts: Product[] = [
     sellingPrice: 5_990_000,
     stock: 2,
     serialNumber: "SN-VGA-44070",
+    barcode: "8991122334455",
   },
   {
     id: "PRD-004",
@@ -37,6 +40,7 @@ export const mockProducts: Product[] = [
     sellingPrice: 799_000,
     stock: 18,
     serialNumber: "SN-RAM-33102",
+    barcode: "8992233445566",
   },
   {
     id: "PRD-005",
@@ -46,6 +50,7 @@ export const mockProducts: Product[] = [
     sellingPrice: 1_750_000,
     stock: 0,
     serialNumber: "SN-SSD-90214",
+    barcode: "8993344556677",
   },
   {
     id: "PRD-006",
@@ -55,6 +60,7 @@ export const mockProducts: Product[] = [
     sellingPrice: 2_550_000,
     stock: 6,
     serialNumber: "SN-SSD-77388",
+    barcode: "8994455667788",
   },
   {
     id: "PRD-007",
@@ -64,6 +70,7 @@ export const mockProducts: Product[] = [
     sellingPrice: 250_000,
     stock: 20,
     serialNumber: "SN-MSE-12004",
+    barcode: "8995566778899",
   },
   {
     id: "PRD-008",
@@ -73,5 +80,6 @@ export const mockProducts: Product[] = [
     sellingPrice: 850_000,
     stock: 20,
     serialNumber: "SN-KBD-66731",
+    barcode: "8996677889900",
   },
 ];

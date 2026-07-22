@@ -28,4 +28,6 @@ export interface Product {
   stock: number;
   /** Nomor seri perangkat (opsional untuk beberapa kategori) */
   serialNumber?: string;
+  /** Kode barcode untuk scan di kasir (opsional) */
+  barcode?: string;
 }
