@@ -38,8 +38,11 @@ export interface AppContextValue {
   login: (username: string, password: string) => boolean;
   logout: () => void;
   addProduct: (product: ProductInput) => void;
+  importProducts: (products: ProductInput[]) => void;
   updateProduct: (id: string, updates: ProductInput) => void;
   deleteProduct: (id: string) => void;
+  deleteMultipleProducts: (ids: string[]) => void;
+  clearAllProducts: () => void;
   reduceStock: (productId: string, quantity: number) => void;
   addTransaction: (transaction: Transaction) => void;
 }
@@ -78,6 +81,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
+  const importProducts = useCallback((items: ProductInput[]) => {
+    if (items.length === 0) return;
+    setProducts((prev) => {
+      const next = [...prev];
+      for (const item of items) {
+        next.push({ id: createNextProductId(next), ...item });
+      }
+      return next;
+    });
+  }, []);
+
   const updateProduct = useCallback((id: string, updates: ProductInput) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updates, id } : p)),
@@ -86,6 +100,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteProduct = useCallback((id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const deleteMultipleProducts = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setProducts((prev) => prev.filter((p) => !idSet.has(p.id)));
+  }, []);
+
+  const clearAllProducts = useCallback(() => {
+    setProducts([]);
   }, []);
 
   const reduceStock = useCallback((productId: string, quantity: number) => {
@@ -111,8 +135,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       addProduct,
+      importProducts,
       updateProduct,
       deleteProduct,
+      deleteMultipleProducts,
+      clearAllProducts,
       reduceStock,
       addTransaction,
     }),
@@ -123,8 +150,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       addProduct,
+      importProducts,
       updateProduct,
       deleteProduct,
+      deleteMultipleProducts,
+      clearAllProducts,
       reduceStock,
       addTransaction,
     ],

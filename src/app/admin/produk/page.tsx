@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/src/context/AppContext";
 import {
   formatCodeOrSerial,
@@ -8,6 +8,13 @@ import {
   inferHasFactorySerial,
   resolveSerialOrCode,
 } from "@/lib/admin-product";
+import {
+  buildProductExportCsv,
+  buildProductTemplateCsv,
+  downloadCsvFile,
+  getProductExportFilename,
+  parseImportedProducts,
+} from "@/lib/product-csv";
 import type { Product, ProductCategory } from "@/types/product";
 
 const CATEGORIES: ProductCategory[] = [
@@ -252,11 +259,24 @@ function StockBadge({ stock }: { stock: number }) {
 }
 
 export default function AdminProdukPage() {
-  const { products, addProduct, updateProduct, deleteProduct } = useApp();
+  const {
+    products,
+    addProduct,
+    importProducts,
+    updateProduct,
+    deleteProduct,
+    deleteMultipleProducts,
+    clearAllProducts,
+  } = useApp();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<
     ProductCategory | "all"
@@ -308,6 +328,92 @@ export default function AdminProdukPage() {
       compareProducts(a, b, sortField, sortOrder),
     );
   }, [lowStockFilteredProducts, sortField, sortOrder]);
+
+  const displayProductIds = useMemo(
+    () => displayProducts.map((product) => product.id),
+    [displayProducts],
+  );
+
+  const allDisplayedSelected =
+    displayProductIds.length > 0 &&
+    displayProductIds.every((id) => selectedProductIds.includes(id));
+
+  const someDisplayedSelected = displayProductIds.some((id) =>
+    selectedProductIds.includes(id),
+  );
+
+  useEffect(() => {
+    setSelectedProductIds((prev) =>
+      prev.filter((id) => products.some((product) => product.id === id)),
+    );
+  }, [products]);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate =
+        someDisplayedSelected && !allDisplayedSelected;
+    }
+  }, [someDisplayedSelected, allDisplayedSelected]);
+
+  function toggleSelectAll() {
+    if (allDisplayedSelected) {
+      setSelectedProductIds((prev) =>
+        prev.filter((id) => !displayProductIds.includes(id)),
+      );
+      return;
+    }
+    setSelectedProductIds((prev) => [
+      ...new Set([...prev, ...displayProductIds]),
+    ]);
+  }
+
+  function toggleSelectProduct(id: string) {
+    setSelectedProductIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  }
+
+  function handleBulkDelete() {
+    const count = selectedProductIds.length;
+    if (count === 0) return;
+
+    const ok = window.confirm(
+      `Hapus ${count.toLocaleString("id-ID")} produk terpilih? Tindakan ini tidak dapat dibatalkan.`,
+    );
+    if (!ok) return;
+
+    deleteMultipleProducts(selectedProductIds);
+    if (editingId && selectedProductIds.includes(editingId)) {
+      closeFormModal();
+    }
+    setSelectedProductIds([]);
+    setStatusMessage(
+      `Berhasil menghapus ${count.toLocaleString("id-ID")} produk terpilih.`,
+    );
+  }
+
+  function openClearAllModal() {
+    setClearConfirmText("");
+    setIsClearAllModalOpen(true);
+  }
+
+  function closeClearAllModal() {
+    setIsClearAllModalOpen(false);
+    setClearConfirmText("");
+  }
+
+  function handleClearAllProducts() {
+    if (clearConfirmText.trim() !== "HAPUS") return;
+
+    const count = products.length;
+    clearAllProducts();
+    if (editingId) closeFormModal();
+    setSelectedProductIds([]);
+    closeClearAllModal();
+    setStatusMessage(
+      `Seluruh data produk (${count.toLocaleString("id-ID")} item) berhasil dihapus.`,
+    );
+  }
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -429,6 +535,59 @@ export default function AdminProdukPage() {
     closeFormModal();
   }
 
+  function handleExportCSV() {
+    const csv = buildProductExportCsv(products, LOW_STOCK_THRESHOLD);
+    downloadCsvFile(csv, getProductExportFilename());
+    setStatusMessage(
+      `Berhasil mengekspor ${products.length.toLocaleString("id-ID")} produk ke CSV.`,
+    );
+  }
+
+  function handleDownloadTemplate() {
+    downloadCsvFile(buildProductTemplateCsv(), "template-produk.csv");
+  }
+
+  function handleImportCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      const { items, skipped, errors } = parseImportedProducts(
+        text,
+        products,
+        LOW_STOCK_THRESHOLD,
+      );
+
+      if (items.length === 0) {
+        window.alert(
+          errors[0] ?? "Tidak ada produk valid yang dapat diimpor.",
+        );
+        setStatusMessage(null);
+        return;
+      }
+
+      importProducts(items);
+      setStatusMessage(
+        `Berhasil mengimpor ${items.length.toLocaleString("id-ID")} produk!${
+          skipped > 0 ? ` (${skipped} baris dilewati)` : ""
+        }`,
+      );
+
+      if (errors.length > 0) {
+        console.warn("Import CSV warnings:", errors);
+      }
+    };
+
+    reader.onerror = () => {
+      window.alert("Gagal membaca file CSV. Coba lagi.");
+    };
+
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 p-6 sm:p-8">
       <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -441,14 +600,56 @@ export default function AdminProdukPage() {
             beli/jual dengan mudah dari satu panel terpusat.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateForm}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          <IconPlus className="h-5 w-5" />
-          Tambah Produk Baru
-        </button>
+        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={openClearAllModal}
+              disabled={products.length === 0}
+              className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Hapus Semua Barang
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              disabled={products.length === 0}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-100"
+            >
+              Import CSV
+            </button>
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              <IconPlus className="h-5 w-5" />
+              Tambah Produk Baru
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="text-xs font-medium text-indigo-600 underline-offset-2 hover:underline"
+          >
+            Unduh Format/Template CSV
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImportCSV}
+            aria-label="Import file CSV produk"
+          />
+        </div>
       </header>
 
       {statusMessage && (
@@ -571,10 +772,46 @@ export default function AdminProdukPage() {
           </div>
         </div>
 
+        {selectedProductIds.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-red-100 bg-red-50 px-6 py-3">
+            <p className="text-sm font-medium text-red-800">
+              {selectedProductIds.length.toLocaleString("id-ID")} Barang Terpilih
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedProductIds([])}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Batal Pilihan
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500"
+              >
+                <IconTrash className="h-3.5 w-3.5" />
+                Hapus Terpilih
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
+                <th className="w-12 px-4 py-3">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allDisplayedSelected}
+                    onChange={toggleSelectAll}
+                    disabled={displayProducts.length === 0}
+                    aria-label="Pilih semua produk yang ditampilkan"
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   ID
                 </th>
@@ -624,7 +861,7 @@ export default function AdminProdukPage() {
               {displayProducts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-6 py-16 text-center text-slate-500"
                   >
                     {products.length === 0
@@ -638,8 +875,21 @@ export default function AdminProdukPage() {
                 displayProducts.map((product) => (
                   <tr
                     key={product.id}
-                    className="transition-colors hover:bg-slate-50/70"
+                    className={`transition-colors hover:bg-slate-50/70 ${
+                      selectedProductIds.includes(product.id)
+                        ? "bg-indigo-50/40"
+                        : ""
+                    }`}
                   >
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedProductIds.includes(product.id)}
+                        onChange={() => toggleSelectProduct(product.id)}
+                        aria-label={`Pilih ${product.name}`}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
                     <td className="px-6 py-4 font-mono text-xs text-slate-500">
                       {product.id}
                     </td>
@@ -701,6 +951,65 @@ export default function AdminProdukPage() {
           </table>
         </div>
       </section>
+
+      {isClearAllModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-all-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            onClick={closeClearAllModal}
+            aria-label="Tutup konfirmasi"
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-red-200 bg-white p-6 shadow-xl">
+            <h2
+              id="clear-all-title"
+              className="text-lg font-semibold text-red-700"
+            >
+              Hapus Semua Data Produk
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              Apakah Anda yakin ingin menghapus{" "}
+              <strong>SELURUH</strong> data produk (
+              {products.length.toLocaleString("id-ID")} item)? Tindakan ini
+              tidak dapat dibatalkan.
+            </p>
+            <label className="mt-4 block text-sm font-medium text-slate-700">
+              Ketik <span className="font-mono text-red-600">HAPUS</span> untuk
+              konfirmasi
+              <input
+                type="text"
+                value={clearConfirmText}
+                onChange={(e) => setClearConfirmText(e.target.value)}
+                placeholder="HAPUS"
+                className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                autoComplete="off"
+              />
+            </label>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeClearAllModal}
+                className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllProducts}
+                disabled={clearConfirmText.trim() !== "HAPUS"}
+                className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Ya, Hapus Semua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isFormOpen && (
         <div

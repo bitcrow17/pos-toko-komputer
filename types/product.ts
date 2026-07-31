@@ -30,4 +30,6 @@ export interface Product {
   serialNumber?: string;
   /** Kode barcode untuk scan di kasir (opsional) */
   barcode?: string;
+  /** Batas stok minimum untuk peringatan restock (opsional) */
+  minimumStock?: number;
 }
