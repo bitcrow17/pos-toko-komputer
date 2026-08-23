@@ -1,22 +1,25 @@
-/** Data pelanggan */
+/** Tipe kategori pelanggan */
+export type CustomerType = "REGULAR" | "CORPORATE";
 
+/** Master data pelanggan */
 export interface Customer {
-
-  /** ID unik pelanggan */
-
   id: string;
-
-  /** Nama pelanggan */
-
+  code: string;
   name: string;
-
-  /** Alamat pelanggan */
-
-  address: string;
-
-  /** Nomor telepon pelanggan */
-
-  phoneNumber: string;
-
+  phone: string;
+  address?: string;
+  type: CustomerType;
+  creditLimit?: number;
+  createdAt: string;
 }
 
+/** Input buat / update pelanggan (id & createdAt diisi sistem) */
+export type CustomerInput = {
+  name: string;
+  phone: string;
+  address?: string;
+  type: CustomerType;
+  creditLimit?: number;
+  /** Opsional; jika kosong akan digenerate otomatis */
+  code?: string;
+};

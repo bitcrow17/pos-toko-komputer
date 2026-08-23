@@ -28,7 +28,18 @@ import type { CartItem } from "@/types/cart";
 import { getCartItemSubtotal } from "@/types/cart";
 import type { Customer } from "@/types/customer";
 import type { Transaction } from "@/types/transaction";
+import type { PaymentMethod } from "@/types/transaction";
+import type { Debt } from "@/types/debt";
+import type {
+  DebtPaymentReceipt,
+  DebtSettlementMethod,
+} from "@/types/debt-payment";
 import ReceiptModal from "@/src/components/ReceiptModal";
+import DebtPaymentReceiptModal from "@/src/components/DebtPaymentReceiptModal";
+import KasirDebtPaymentPanel from "@/src/components/KasirDebtPaymentPanel";
+import CustomerFormModal from "@/src/components/CustomerFormModal";
+
+type KasirMode = "sale" | "debt";
 
 interface HoldTransaction {
   id: string;
@@ -40,21 +51,6 @@ interface HoldTransaction {
   discountValue: number;
 }
 
-const MOCK_CUSTOMERS: Customer[] = [
-  {
-    id: "CUS-000",
-    name: "Pelanggan Umum",
-    address: "-",
-    phoneNumber: "-",
-  },
-  {
-    id: "CUS-001",
-    name: "Budi Santoso",
-    address: "Jl. Merdeka No. 12, Bandung",
-    phoneNumber: "081234567890",
-  },
-];
-
 function formatRupiah(value: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -62,6 +58,13 @@ function formatRupiah(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function formatDateInput(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function createHoldId(): string {
@@ -72,27 +75,57 @@ export default function KasirPage() {
   const {
     products: globalProducts,
     transactions,
+    debts,
+    customers,
     reduceStock,
     addTransaction,
+    addDebt,
+    payDebt,
+    addCustomer,
   } = useApp();
 
   const catalogProducts = useMemo(
     () => buildCatalog(globalProducts),
     [globalProducts],
   );
+  const [kasirMode, setKasirMode] = useState<KasirMode>("sale");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    MOCK_CUSTOMERS[0],
-  );
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [holdTransactions, setHoldTransactions] = useState<HoldTransaction[]>(
     [],
+  );
+  const [debtPaymentReceipt, setDebtPaymentReceipt] =
+    useState<DebtPaymentReceipt | null>(null);
+  const [isQuickCustomerModalOpen, setIsQuickCustomerModalOpen] =
+    useState(false);
+
+  const selectedCustomer = useMemo(
+    () => customers.find((c) => c.id === selectedCustomerId) ?? null,
+    [customers, selectedCustomerId],
+  );
+
+  const sortedCustomers = useMemo(
+    () =>
+      [...customers].sort((a, b) =>
+        a.name.localeCompare(b.name, "id", { sensitivity: "base" }),
+      ),
+    [customers],
   );
 
   const [isTaxEnabled, setIsTaxEnabled] = useState(false);
   const [discountType, setDiscountType] = useState<DiscountType>("NOMINAL");
   const [discountValue, setDiscountValue] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [cashPaidInput, setCashPaidInput] = useState("");
+  const [downPaymentInput, setDownPaymentInput] = useState("0");
+  const [dueDateInput, setDueDateInput] = useState(() => {
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    return formatDateInput(nextWeek);
+  });
+  const [creditCustomerName, setCreditCustomerName] = useState("");
+  const [creditCustomerPhone, setCreditCustomerPhone] = useState("");
 
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [qtyDraftByProduct, setQtyDraftByProduct] = useState<
@@ -101,6 +134,7 @@ export default function KasirPage() {
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [completedTransaction, setCompletedTransaction] =
     useState<Transaction | null>(null);
+  const [completedDebt, setCompletedDebt] = useState<Debt | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = useMemo(
@@ -120,9 +154,25 @@ export default function KasirPage() {
   );
 
   const cashPaid = useMemo(() => parseCashInput(cashPaidInput), [cashPaidInput]);
+  const downPayment = useMemo(
+    () => parseCashInput(downPaymentInput),
+    [downPaymentInput],
+  );
   const changeAmount = calculateChange(totals.grandTotal, cashPaid);
-  const canCompletePayment =
+
+  const canCompleteCashPayment =
     cartItems.length > 0 && cashPaid >= totals.grandTotal;
+
+  const canCompleteCreditPayment =
+    cartItems.length > 0 &&
+    creditCustomerName.trim().length > 0 &&
+    creditCustomerPhone.trim().length > 0 &&
+    dueDateInput.length > 0 &&
+    downPayment >= 0 &&
+    downPayment <= totals.grandTotal;
+
+  const canCompletePayment =
+    paymentMethod === "CASH" ? canCompleteCashPayment : canCompleteCreditPayment;
 
   function showAlert(message: string) {
     window.alert(message);
@@ -214,6 +264,7 @@ export default function KasirPage() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (kasirMode !== "sale") return;
       if (e.key === "F2") {
         e.preventDefault();
         openCatalogModal();
@@ -224,7 +275,7 @@ export default function KasirPage() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isCatalogModalOpen]);
+  }, [isCatalogModalOpen, kasirMode]);
 
   function updateQuantity(productId: string, newQty: number) {
     const result = updateQuantityLogic(
@@ -257,7 +308,27 @@ export default function KasirPage() {
   function clearCart() {
     setCartItems([]);
     setCashPaidInput("");
+    setDownPaymentInput("0");
     setQtyDraftByProduct({});
+  }
+
+  function syncCreditCustomerFromSelection(customer: Customer | null) {
+    if (!customer) {
+      setCreditCustomerName("");
+      setCreditCustomerPhone("");
+      return;
+    }
+    setCreditCustomerName(customer.name);
+    setCreditCustomerPhone(customer.phone);
+  }
+
+  function selectCustomerById(customerId: string) {
+    setSelectedCustomerId(customerId);
+    const customer =
+      customers.find((c) => c.id === customerId) ?? null;
+    if (paymentMethod === "CREDIT") {
+      syncCreditCustomerFromSelection(customer);
+    }
   }
 
   function holdCurrentTransaction() {
@@ -296,7 +367,7 @@ export default function KasirPage() {
     }
 
     setCartItems(hold.items);
-    setSelectedCustomer(hold.customer);
+    setSelectedCustomerId(hold.customer?.id ?? "");
     setIsTaxEnabled(hold.isTaxEnabled);
     setDiscountType(hold.discountType);
     setDiscountValue(hold.discountValue);
@@ -310,17 +381,63 @@ export default function KasirPage() {
       showAlert("Keranjang kosong.");
       return;
     }
-    if (cashPaid < totals.grandTotal) {
-      showAlert(
-        `Uang bayar kurang ${formatRupiah(totals.grandTotal - cashPaid)}.`,
-      );
+
+    if (paymentMethod === "CASH") {
+      if (cashPaid < totals.grandTotal) {
+        showAlert(
+          `Uang bayar kurang ${formatRupiah(totals.grandTotal - cashPaid)}.`,
+        );
+        return;
+      }
+      finalizeTransaction({
+        paymentMethod: "CASH",
+        nominalBayar: cashPaid,
+        kembalian: changeAmount,
+        customerId: selectedCustomer?.id,
+        customerName: selectedCustomer?.name,
+        customerPhone: selectedCustomer?.phone,
+      });
       return;
     }
 
-    cartItems.forEach((item) =>
-      reduceStock(item.productId, item.quantity),
-    );
+    const name = creditCustomerName.trim();
+    const phone = creditCustomerPhone.trim();
+    if (!name || !phone) {
+      showAlert("Nama dan No. HP pelanggan wajib diisi untuk transaksi tempo.");
+      return;
+    }
+    if (!dueDateInput) {
+      showAlert("Tanggal jatuh tempo wajib diisi.");
+      return;
+    }
+    if (downPayment > totals.grandTotal) {
+      showAlert("Uang muka tidak boleh melebihi total belanja.");
+      return;
+    }
 
+    const customerId =
+      selectedCustomer?.id ?? `CUS-CR-${Date.now()}`;
+
+    finalizeTransaction({
+      paymentMethod: "CREDIT",
+      nominalBayar: downPayment,
+      kembalian: 0,
+      customerId,
+      customerName: name,
+      customerPhone: phone,
+      dueDate: dueDateInput,
+    });
+  }
+
+  function finalizeTransaction(options: {
+    paymentMethod: PaymentMethod;
+    nominalBayar: number;
+    kembalian: number;
+    customerId?: string;
+    customerName?: string;
+    customerPhone?: string;
+    dueDate?: string;
+  }) {
     const items: TransactionItem[] = cartItems.map((item) => ({
       productId: item.productId,
       productName: item.productName,
@@ -329,27 +446,196 @@ export default function KasirPage() {
     }));
 
     const invoiceId = generateInvoiceNumber(transactions);
+    const now = new Date().toISOString();
+
+    let linkedDebt: Debt | null = null;
+
+    if (options.paymentMethod === "CREDIT") {
+      const customerId = options.customerId?.trim();
+      const customerName = options.customerName?.trim();
+      const customerPhone = options.customerPhone?.trim();
+      const dueDate = options.dueDate?.trim();
+
+      if (!customerId || !customerName || !customerPhone || !dueDate) {
+        showAlert(
+          "Data pelanggan dan tanggal jatuh tempo wajib diisi untuk transaksi tempo.",
+        );
+        return;
+      }
+
+      try {
+        linkedDebt = addDebt({
+          transactionId: invoiceId,
+          customerId,
+          customerName,
+          customerPhone,
+          totalAmount: totals.grandTotal,
+          paidAmount: options.nominalBayar,
+          dueDate,
+          createdAt: now,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Gagal membuat data utang. Transaksi dibatalkan.";
+        showAlert(message);
+        return;
+      }
+    }
+
     const newTransaction: Transaction = {
       id: invoiceId,
-      timestamp: new Date().toISOString(),
+      timestamp: now,
       items,
       totalHarga: totals.grandTotal,
-      nominalBayar: cashPaid,
-      kembalian: changeAmount,
+      nominalBayar: options.nominalBayar,
+      kembalian: options.kembalian,
+      paymentMethod: options.paymentMethod,
+      customerId: options.customerId?.trim(),
+      customerName: options.customerName?.trim(),
+      customerPhone: options.customerPhone?.trim(),
+      debtId: linkedDebt?.id,
     };
+
     addTransaction(newTransaction);
+
+    cartItems.forEach((item) =>
+      reduceStock(item.productId, item.quantity),
+    );
+
     setCompletedTransaction(newTransaction);
+    setCompletedDebt(linkedDebt);
     setAlertMessage(null);
     clearCart();
     setIsTaxEnabled(false);
     setDiscountType("NOMINAL");
     setDiscountValue(0);
+    setPaymentMethod("CASH");
+    setCreditCustomerName("");
+    setCreditCustomerPhone("");
+    setDownPaymentInput("0");
   }
 
   /** Demo: generate kode untuk urutan berikutnya */
   function demoGenerateNextCode() {
     const nextSeq = catalogProducts.length + 1;
     showAlert(`Kode barang berikutnya: ${generateProductCode(nextSeq)}`);
+  }
+
+  function generateDebtPaymentReceiptId(): string {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const prefix = `PAY-${y}${m}${d}`;
+    const count = transactions.filter((t) => t.id.startsWith(prefix)).length;
+    return `${prefix}-${String(count + 1).padStart(3, "0")}`;
+  }
+
+  function handlePayDebtInKasir(payload: {
+    customerId: string;
+    customerName: string;
+    customerPhone: string;
+    openDebts: Debt[];
+    paymentAmount: number;
+    paymentMethod: DebtSettlementMethod;
+    note?: string;
+  }): DebtPaymentReceipt | null {
+    const {
+      customerId,
+      customerName,
+      customerPhone,
+      openDebts,
+      paymentAmount,
+      paymentMethod,
+      note,
+    } = payload;
+
+    if (paymentAmount <= 0) {
+      showAlert("Nominal pembayaran harus lebih dari 0.");
+      return null;
+    }
+
+    const totalRemaining = openDebts.reduce(
+      (sum, d) => sum + d.remainingAmount,
+      0,
+    );
+    if (paymentAmount > totalRemaining) {
+      showAlert(
+        `Nominal melebihi sisa utang (${formatRupiah(totalRemaining)}).`,
+      );
+      return null;
+    }
+
+    const sorted = [...openDebts].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+
+    let leftover = paymentAmount;
+    const paidDebtIds: string[] = [];
+    const methodLabel =
+      paymentMethod === "CASH"
+        ? "Tunai"
+        : paymentMethod === "QRIS"
+          ? "QRIS"
+          : "Transfer";
+    const paymentNote = note
+      ? `[${methodLabel}] ${note}`
+      : `[${methodLabel}] Pembayaran utang via Kasir`;
+
+    for (const debt of sorted) {
+      if (leftover <= 0) break;
+      const apply = Math.min(leftover, debt.remainingAmount);
+      if (apply <= 0) continue;
+      payDebt(debt.id, apply, paymentNote);
+      paidDebtIds.push(debt.id);
+      leftover -= apply;
+    }
+
+    const remainingAfter = Math.max(0, totalRemaining - paymentAmount);
+    const now = new Date().toISOString();
+    const receiptId = generateDebtPaymentReceiptId();
+
+    const cashInTransaction: Transaction = {
+      id: receiptId,
+      timestamp: now,
+      items: [
+        {
+          productId: "DEBT-PAY",
+          productName: `Pembayaran Utang — ${customerName}`,
+          quantity: 1,
+          unitPrice: paymentAmount,
+        },
+      ],
+      totalHarga: paymentAmount,
+      nominalBayar: paymentAmount,
+      kembalian: 0,
+      paymentMethod,
+      customerId,
+      customerName,
+      customerPhone,
+    };
+
+    addTransaction(cashInTransaction);
+
+    const receipt: DebtPaymentReceipt = {
+      id: receiptId,
+      timestamp: now,
+      customerId,
+      customerName,
+      customerPhone,
+      paymentAmount,
+      paymentMethod,
+      note,
+      remainingAfter,
+      debtIds: paidDebtIds,
+    };
+
+    setDebtPaymentReceipt(receipt);
+    setAlertMessage(null);
+    return receipt;
   }
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -372,31 +658,49 @@ export default function KasirPage() {
             <h1 className="text-lg font-semibold text-white">Kasir / POS</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-xs text-slate-400">
-              Pelanggan
-              <select
-                className={selectClass}
-                value={selectedCustomer?.id ?? ""}
-                onChange={(e) => {
-                  const c =
-                    MOCK_CUSTOMERS.find((x) => x.id === e.target.value) ?? null;
-                  setSelectedCustomer(c);
-                }}
+            {kasirMode === "sale" && (
+              <>
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  Pelanggan
+                  <select
+                    className={selectClass}
+                    value={selectedCustomerId}
+                    onChange={(e) => selectCustomerById(e.target.value)}
+                  >
+                    <option value="">Pelanggan Umum</option>
+                    {sortedCustomers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                        {c.type === "CORPORATE" ? " (Instansi)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsQuickCustomerModalOpen(true)}
+                  className="rounded-lg border border-cyan-500/40 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+                >
+                  + Pelanggan Baru
+                </button>
+                <button
+                  type="button"
+                  onClick={openCatalogModal}
+                  className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
+                >
+                  Cari Produk (F2)
+                </button>
+              </>
+            )}
+            {kasirMode === "debt" && (
+              <button
+                type="button"
+                onClick={() => setIsQuickCustomerModalOpen(true)}
+                className="rounded-lg border border-amber-500/40 px-3 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/10"
               >
-                {MOCK_CUSTOMERS.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={openCatalogModal}
-              className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
-            >
-              Cari Produk (F2)
-            </button>
+                + Pelanggan Baru
+              </button>
+            )}
             <Link
               href="/"
               className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
@@ -404,6 +708,42 @@ export default function KasirPage() {
               Dashboard
             </Link>
           </div>
+        </div>
+
+        <div
+          className="mt-3 inline-flex flex-wrap rounded-xl border border-slate-700 bg-slate-950 p-1"
+          role="tablist"
+          aria-label="Mode kasir"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={kasirMode === "sale"}
+            onClick={() => setKasirMode("sale")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              kasirMode === "sale"
+                ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            }`}
+          >
+            Penjualan / Kasir
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={kasirMode === "debt"}
+            onClick={() => {
+              setKasirMode("debt");
+              closeCatalogModal();
+            }}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              kasirMode === "debt"
+                ? "bg-amber-600 text-white shadow-sm shadow-amber-900/40"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            }`}
+          >
+            Pembayaran Utang
+          </button>
         </div>
 
         {alertMessage && (
@@ -415,7 +755,8 @@ export default function KasirPage() {
           </p>
         )}
 
-        {/* Container pencarian: input selalu di depan, dropdown di bawahnya */}
+        {kasirMode === "sale" && (
+        /* Container pencarian: input selalu di depan, dropdown di bawahnya */
         <div className="relative z-50 mt-3">
           <div className="relative flex gap-2">
             <input
@@ -582,9 +923,17 @@ export default function KasirPage() {
             </>
           )}
         </div>
+        )}
       </header>
 
-      {/* Main: keranjang 78% + pembayaran 22% */}
+      {kasirMode === "debt" ? (
+        <KasirDebtPaymentPanel
+          debts={debts}
+          customers={customers}
+          onPay={handlePayDebtInKasir}
+        />
+      ) : (
+      /* Main: keranjang 78% + pembayaran 22% */
       <div className="flex min-h-0 flex-1">
         <section className="flex w-[78%] min-w-0 flex-col border-r border-slate-800">
           <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
@@ -765,6 +1114,39 @@ export default function KasirPage() {
           <div className="shrink-0 border-b border-slate-800 p-4">
             <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
               <p className="text-xs font-semibold uppercase text-slate-500">
+                Metode Pembayaran
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("CASH")}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
+                    paymentMethod === "CASH"
+                      ? "bg-cyan-600 text-white"
+                      : "border border-slate-700 text-slate-400 hover:bg-slate-800"
+                  }`}
+                >
+                  Tunai
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod("CREDIT");
+                    syncCreditCustomerFromSelection(selectedCustomer);
+                  }}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
+                    paymentMethod === "CREDIT"
+                      ? "bg-amber-600 text-white"
+                      : "border border-slate-700 text-slate-400 hover:bg-slate-800"
+                  }`}
+                >
+                  Tempo / Utang
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-500">
                 Diskon & Pajak
               </p>
               <label className="flex items-center gap-2 text-sm text-slate-300">
@@ -833,34 +1215,94 @@ export default function KasirPage() {
               </div>
             </dl>
 
-            <label className="mt-4 block text-xs text-slate-400">
-              Uang Bayar
-              <input
-                type="text"
-                inputMode="numeric"
-                className={`${inputClass} mt-1 text-lg font-semibold tabular-nums`}
-                value={cashPaidInput}
-                onChange={(e) => setCashPaidInput(e.target.value)}
-                placeholder="0"
-              />
-            </label>
+            {paymentMethod === "CASH" ? (
+              <>
+                <label className="mt-4 block text-xs text-slate-400">
+                  Uang Bayar
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className={`${inputClass} mt-1 text-lg font-semibold tabular-nums`}
+                    value={cashPaidInput}
+                    onChange={(e) => setCashPaidInput(e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
 
-            <div
-              className={`mt-3 flex justify-between rounded-lg px-3 py-2 text-sm ${
-                cartItems.length > 0 && cashPaid < totals.grandTotal
-                  ? "bg-red-500/10 text-red-300"
-                  : "bg-emerald-500/10 text-emerald-300"
-              }`}
-            >
-              <span>Uang Kembalian</span>
-              <span className="font-semibold tabular-nums">
-                {cartItems.length === 0
-                  ? formatRupiah(0)
-                  : cashPaid < totals.grandTotal
-                    ? `Kurang ${formatRupiah(totals.grandTotal - cashPaid)}`
-                    : formatRupiah(Math.max(0, changeAmount))}
-              </span>
-            </div>
+                <div
+                  className={`mt-3 flex justify-between rounded-lg px-3 py-2 text-sm ${
+                    cartItems.length > 0 && cashPaid < totals.grandTotal
+                      ? "bg-red-500/10 text-red-300"
+                      : "bg-emerald-500/10 text-emerald-300"
+                  }`}
+                >
+                  <span>Uang Kembalian</span>
+                  <span className="font-semibold tabular-nums">
+                    {cartItems.length === 0
+                      ? formatRupiah(0)
+                      : cashPaid < totals.grandTotal
+                        ? `Kurang ${formatRupiah(totals.grandTotal - cashPaid)}`
+                        : formatRupiah(Math.max(0, changeAmount))}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="mt-4 space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                <p className="text-xs font-semibold uppercase text-amber-200/80">
+                  Data Tempo / Utang
+                </p>
+                <label className="block text-xs text-slate-400">
+                  Nama Pelanggan *
+                  <input
+                    type="text"
+                    className={`${inputClass} mt-1`}
+                    value={creditCustomerName}
+                    onChange={(e) => setCreditCustomerName(e.target.value)}
+                    placeholder="Nama lengkap"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  No. HP *
+                  <input
+                    type="tel"
+                    className={`${inputClass} mt-1`}
+                    value={creditCustomerPhone}
+                    onChange={(e) => setCreditCustomerPhone(e.target.value)}
+                    placeholder="08xxxxxxxxxx"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Uang Muka / DP (opsional)
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className={`${inputClass} mt-1 tabular-nums`}
+                    value={downPaymentInput}
+                    onChange={(e) => setDownPaymentInput(e.target.value)}
+                    placeholder="0"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Tanggal Jatuh Tempo *
+                  <input
+                    type="date"
+                    className={`${inputClass} mt-1 [color-scheme:dark]`}
+                    value={dueDateInput}
+                    onChange={(e) => setDueDateInput(e.target.value)}
+                  />
+                </label>
+                <div className="rounded-lg bg-slate-900/80 px-3 py-2 text-xs text-slate-400">
+                  <div className="flex justify-between">
+                    <span>Sisa Utang</span>
+                    <span className="font-semibold tabular-nums text-amber-200">
+                      {formatRupiah(
+                        Math.max(0, totals.grandTotal - downPayment),
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 grid grid-cols-2 gap-3">
               <button
@@ -875,23 +1317,53 @@ export default function KasirPage() {
                 type="button"
                 onClick={completePayment}
                 disabled={!canCompletePayment}
-                className="rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-600"
+                className={`rounded-xl py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-600 ${
+                  paymentMethod === "CREDIT"
+                    ? "bg-amber-600 hover:bg-amber-500"
+                    : "bg-emerald-600 hover:bg-emerald-500"
+                }`}
               >
-                Bayar
+                {paymentMethod === "CREDIT" ? "Simpan Tempo" : "Bayar"}
               </button>
             </div>
           </div>
         </aside>
       </div>
+      )}
     </div>
 
       {completedTransaction && (
         <ReceiptModal
           transaction={completedTransaction}
           variant="success"
-          onClose={() => setCompletedTransaction(null)}
+          debt={completedDebt}
+          onClose={() => {
+            setCompletedTransaction(null);
+            setCompletedDebt(null);
+          }}
         />
       )}
+
+      {debtPaymentReceipt && (
+        <DebtPaymentReceiptModal
+          receipt={debtPaymentReceipt}
+          onClose={() => setDebtPaymentReceipt(null)}
+        />
+      )}
+
+      <CustomerFormModal
+        open={isQuickCustomerModalOpen}
+        title="Tambah Pelanggan Cepat"
+        submitLabel="Simpan & Pilih"
+        onClose={() => setIsQuickCustomerModalOpen(false)}
+        onSubmit={(input) => {
+          const created = addCustomer(input);
+          setSelectedCustomerId(created.id);
+          if (paymentMethod === "CREDIT") {
+            syncCreditCustomerFromSelection(created);
+          }
+        }}
+      />
     </>
   );
 }

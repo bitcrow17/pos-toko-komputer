@@ -1,19 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Transaction } from "@/types/transaction";
-import type { Debt } from "@/types/debt";
-import ReceiptDocument from "./ReceiptDocument";
+import type { DebtPaymentReceipt } from "@/types/debt-payment";
+import DebtPaymentReceiptDocument from "./DebtPaymentReceiptDocument";
+import type { ReceiptLayout } from "./ReceiptModal";
 
-export type ReceiptLayout = "a4" | "thermal";
-
-interface ReceiptModalProps {
-  transaction: Transaction;
+interface DebtPaymentReceiptModalProps {
+  receipt: DebtPaymentReceipt;
   onClose: () => void;
-  /** Judul banner sukses (kasir) vs detail (riwayat) */
-  variant?: "success" | "detail";
-  /** Info utang untuk nota tempo (opsional) */
-  debt?: Pick<Debt, "remainingAmount" | "dueDate" | "status"> | null;
 }
 
 function PrinterIcon({ className }: { className?: string }) {
@@ -32,26 +26,6 @@ function PrinterIcon({ className }: { className?: string }) {
       <path d="M6 9V2h12v7" />
       <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
       <path d="M6 14h12v8H6z" />
-    </svg>
-  );
-}
-
-function DownloadIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M12 15V3" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M21 21H3" />
     </svg>
   );
 }
@@ -75,12 +49,10 @@ function CheckCircleIcon({ className }: { className?: string }) {
   );
 }
 
-export default function ReceiptModal({
-  transaction,
+export default function DebtPaymentReceiptModal({
+  receipt,
   onClose,
-  variant = "detail",
-  debt = null,
-}: ReceiptModalProps) {
+}: DebtPaymentReceiptModalProps) {
   const [layout, setLayout] = useState<ReceiptLayout>("thermal");
 
   useEffect(() => {
@@ -111,14 +83,12 @@ export default function ReceiptModal({
     window.print();
   }, [layout]);
 
-  const isSuccess = variant === "success";
-
   return (
     <div
       className="receipt-modal-root fixed inset-0 z-50 flex items-center justify-center p-4 print:static print:inset-auto print:block print:p-0"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="receipt-modal-title"
+      aria-labelledby="debt-pay-receipt-title"
     >
       <button
         type="button"
@@ -132,41 +102,26 @@ export default function ReceiptModal({
           layout === "thermal" ? "max-w-sm" : "max-w-2xl"
         }`}
       >
-        {isSuccess && (
-          <div className="receipt-modal-banner flex items-center gap-3 border-b border-emerald-500/30 bg-emerald-500/10 px-5 py-4 print:hidden">
-            <CheckCircleIcon className="h-8 w-8 shrink-0 text-emerald-400" />
-            <div>
-              <h2
-                id="receipt-modal-title"
-                className="text-base font-semibold text-emerald-100"
-              >
-                Pembayaran Berhasil
-              </h2>
-              <p className="text-sm text-emerald-200/80">
-                Stok inventori telah diperbarui. Cetak atau unduh nota di
-                bawah.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!isSuccess && (
-          <div className="receipt-modal-banner border-b border-slate-800 px-5 py-4 print:hidden">
+        <div className="receipt-modal-banner flex items-center gap-3 border-b border-emerald-500/30 bg-emerald-500/10 px-5 py-4 print:hidden">
+          <CheckCircleIcon className="h-8 w-8 shrink-0 text-emerald-400" />
+          <div>
             <h2
-              id="receipt-modal-title"
-              className="text-base font-semibold text-white"
+              id="debt-pay-receipt-title"
+              className="text-base font-semibold text-emerald-100"
             >
-              Detail Nota
+              Pembayaran Utang Berhasil
             </h2>
-            <p className="text-sm text-slate-400">{transaction.id}</p>
+            <p className="text-sm text-emerald-200/80">
+              Arus kas masuk telah dicatat. Cetak struk pembayaran utang di
+              bawah.
+            </p>
           </div>
-        )}
+        </div>
 
         <div className="overflow-y-auto print:overflow-visible">
-          <ReceiptDocument
-            transaction={transaction}
+          <DebtPaymentReceiptDocument
+            receipt={receipt}
             layout={layout}
-            debt={debt}
             className={
               layout === "thermal"
                 ? "rounded-none"
@@ -212,25 +167,14 @@ export default function ReceiptModal({
             </div>
           </fieldset>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={triggerPrint}
-              className="flex items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500"
-            >
-              <PrinterIcon className="h-4 w-4" />
-              Cetak Nota
-            </button>
-            <button
-              type="button"
-              onClick={triggerPrint}
-              title="Pilih &quot;Save as PDF&quot; atau &quot;Simpan sebagai PDF&quot; di dialog cetak"
-              className="flex items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 py-3 text-sm font-semibold text-slate-100 transition hover:border-cyan-500/50 hover:bg-slate-700"
-            >
-              <DownloadIcon className="h-4 w-4" />
-              Unduh PDF
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={triggerPrint}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500"
+          >
+            <PrinterIcon className="h-4 w-4" />
+            Cetak Struk Pembayaran Utang
+          </button>
 
           <button
             type="button"

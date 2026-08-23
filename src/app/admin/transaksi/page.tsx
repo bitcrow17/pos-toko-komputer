@@ -142,7 +142,7 @@ function formatTimestamp(iso: string): string {
 }
 
 export default function AdminTransaksiPage() {
-  const { transactions } = useApp();
+  const { transactions, debts } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("hari-ini");
   const [customStartDate, setCustomStartDate] = useState(() =>
@@ -345,6 +345,11 @@ export default function AdminTransaksiPage() {
         <ReceiptModal
           transaction={selectedTransaction}
           variant="detail"
+          debt={
+            selectedTransaction.debtId
+              ? debts.find((d) => d.id === selectedTransaction.debtId) ?? null
+              : null
+          }
           onClose={() => setSelectedTransaction(null)}
         />
       )}

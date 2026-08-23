@@ -3,6 +3,7 @@
 import { getTransactionItemSubtotal } from "@/lib/transaction";
 import { STORE_INFO } from "@/lib/store-config";
 import type { Transaction } from "@/types/transaction";
+import type { Debt } from "@/types/debt";
 import type { ReceiptLayout } from "./ReceiptModal";
 
 function formatRupiah(value: number): string {
@@ -24,15 +25,30 @@ function formatTimestamp(iso: string): string {
 interface ReceiptDocumentProps {
   transaction: Transaction;
   layout: ReceiptLayout;
+  debt?: Pick<Debt, "remainingAmount" | "dueDate" | "status"> | null;
   className?: string;
+}
+
+function formatDateOnly(iso: string): string {
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
+    new Date(iso),
+  );
 }
 
 export default function ReceiptDocument({
   transaction,
   layout,
+  debt = null,
   className = "",
 }: ReceiptDocumentProps) {
   const isThermal = layout === "thermal";
+  const isCredit = transaction.paymentMethod === "CREDIT";
+  const remainingAmount =
+    debt?.remainingAmount ??
+    (isCredit
+      ? Math.max(0, transaction.totalHarga - transaction.nominalBayar)
+      : 0);
+  const isPaid = isCredit ? remainingAmount <= 0 : true;
 
   return (
     <article
@@ -79,6 +95,14 @@ export default function ReceiptDocument({
         >
           {formatTimestamp(transaction.timestamp)}
         </p>
+        {isCredit && transaction.customerName && (
+          <p
+            className={`mt-1 text-slate-600 ${isThermal ? "text-[10px]" : "text-xs"}`}
+          >
+            Pelanggan: {transaction.customerName}
+            {transaction.customerPhone ? ` · ${transaction.customerPhone}` : ""}
+          </p>
+        )}
       </header>
 
       <div className={isThermal ? "px-3" : "px-8"}>
@@ -167,6 +191,32 @@ export default function ReceiptDocument({
               {formatRupiah(transaction.kembalian)}
             </dd>
           </div>
+          <div
+            className={`flex justify-between font-semibold ${
+              isPaid ? "text-emerald-700" : "text-amber-700"
+            }`}
+          >
+            <dt>Status Pembayaran</dt>
+            <dd>{isCredit ? (isPaid ? "LUNAS" : "UTANG (TEMPO)") : "LUNAS"}</dd>
+          </div>
+          {isCredit && !isPaid && (
+            <>
+              <div className="flex justify-between text-amber-800">
+                <dt>Sisa Utang</dt>
+                <dd className="tabular-nums font-bold">
+                  {formatRupiah(remainingAmount)}
+                </dd>
+              </div>
+              {(debt?.dueDate || transaction.timestamp) && (
+                <div className="flex justify-between text-slate-600">
+                  <dt>Jatuh Tempo</dt>
+                  <dd className="tabular-nums">
+                    {formatDateOnly(debt?.dueDate ?? transaction.timestamp)}
+                  </dd>
+                </div>
+              )}
+            </>
+          )}
         </dl>
 
         <p

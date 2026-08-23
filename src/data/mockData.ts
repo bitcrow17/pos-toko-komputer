@@ -1,4 +1,5 @@
 import type { Product } from "@/types/product";
+import type { Customer } from "@/types/customer";
 
 /** Data produk tiruan untuk pengembangan halaman kasir */
 export const mockProducts: Product[] = [
@@ -81,5 +82,39 @@ export const mockProducts: Product[] = [
     stock: 20,
     serialNumber: "SN-KBD-66731",
     barcode: "8996677889900",
+  },
+];
+
+/** Data pelanggan awal untuk master data */
+export const mockCustomers: Customer[] = [
+  {
+    id: "CUS-0001",
+    code: "PLG-0001",
+    name: "Budi Santoso",
+    phone: "081234567890",
+    address: "Jl. Merdeka No. 12, Bandung",
+    type: "REGULAR",
+    creditLimit: 5_000_000,
+    createdAt: "2024-01-10T08:00:00.000Z",
+  },
+  {
+    id: "CUS-0002",
+    code: "PLG-0002",
+    name: "PT Maju Jaya Komputer",
+    phone: "0227654321",
+    address: "Jl. Asia Afrika No. 88, Bandung",
+    type: "CORPORATE",
+    creditLimit: 50_000_000,
+    createdAt: "2024-02-15T09:30:00.000Z",
+  },
+  {
+    id: "CUS-0003",
+    code: "PLG-0003",
+    name: "Siti Aminah",
+    phone: "081298765432",
+    address: "Jl. Cihampelas No. 5, Bandung",
+    type: "REGULAR",
+    creditLimit: 2_000_000,
+    createdAt: "2024-03-01T10:00:00.000Z",
   },
 ];

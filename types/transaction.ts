@@ -1,3 +1,6 @@
+/** Metode pembayaran transaksi */
+export type PaymentMethod = "CASH" | "QRIS" | "TRANSFER" | "CREDIT";
+
 /** Baris item dalam transaksi yang sudah lunas */
 export interface TransactionItem {
   productId: string;
@@ -16,4 +19,12 @@ export interface Transaction {
   totalHarga: number;
   nominalBayar: number;
   kembalian: number;
+  /** Metode pembayaran; default tunai jika tidak diset */
+  paymentMethod?: PaymentMethod;
+  /** Data pelanggan (wajib untuk transaksi tempo) */
+  customerId?: string;
+  customerName?: string;
+  customerPhone?: string;
+  /** ID utang terkait (transaksi tempo) */
+  debtId?: string;
 }
