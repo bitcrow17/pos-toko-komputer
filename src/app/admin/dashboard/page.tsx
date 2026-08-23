@@ -89,15 +89,15 @@ function formatRupiah(value: number): string {
 }
 
 function getLowStockRowClass(stock: number): string {
-  if (stock <= 0) return "bg-red-950/30";
-  return "bg-amber-950/20";
+  if (stock <= 0) return "bg-red-50/60";
+  return "bg-amber-50/40";
 }
 
 function getLowStockBadgeClass(stock: number): string {
   if (stock <= 0) {
-    return "bg-red-500/15 text-red-300 ring-1 ring-red-500/30";
+    return "rounded-lg border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700";
   }
-  return "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30";
+  return "rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700";
 }
 
 export default function AdminDashboardPage() {
@@ -161,30 +161,30 @@ export default function AdminDashboardPage() {
     {
       label: "Total Pendapatan",
       value: formatRupiah(totalPendapatan),
-      accent: "text-cyan-300",
+      accent: "text-indigo-600",
     },
     {
       label: "Total Transaksi",
       value: transactions.length.toLocaleString("id-ID"),
-      accent: "text-white",
+      accent: "text-slate-800",
     },
     {
       label: "Total Produk Aktif",
       value: products.length.toLocaleString("id-ID"),
-      accent: "text-white",
+      accent: "text-slate-800",
     },
     {
       label: "Total Stok Komponen",
       value: totalStokKomponen.toLocaleString("id-ID"),
-      accent: "text-white",
+      accent: "text-slate-800",
     },
   ];
 
   return (
-    <div className="p-6 sm:p-8">
+    <div className="p-6 sm:p-8 print:hidden">
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-white">Dashboard Admin</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-800">Dashboard Admin</h1>
+        <p className="mt-1 text-sm text-slate-500">
           Pusat ringkasan performa toko — data produk & transaksi dari state
           global.
         </p>
@@ -197,11 +197,11 @@ export default function AdminDashboardPage() {
         {overviewCards.map((card) => (
           <article
             key={card.label}
-            className="rounded-xl border border-slate-800 bg-slate-900 p-5 shadow-sm"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <p className="text-sm text-slate-400">{card.label}</p>
+            <p className="text-sm font-medium text-slate-500">{card.label}</p>
             <p
-              className={`mt-2 text-2xl font-semibold tabular-nums sm:text-3xl ${card.accent}`}
+              className={`mt-2 text-2xl font-bold tabular-nums sm:text-3xl ${card.accent}`}
             >
               {card.value}
             </p>
@@ -231,13 +231,13 @@ function PerformanceChartSection({ data }: { data: MonthlyPerformancePoint[] }) 
   return (
     <section
       aria-label="Analisis performa 3 bulan terakhir"
-      className="mt-8 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-sm"
+      className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
-      <div className="border-b border-slate-800 bg-slate-950/40 px-5 py-4">
-        <h2 className="text-base font-semibold text-white">
+      <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+        <h2 className="text-base font-semibold text-slate-800">
           Analisis Performa 3 Bulan Terakhir
         </h2>
-        <p className="mt-0.5 text-xs text-slate-400">
+        <p className="mt-0.5 text-xs text-slate-500">
           Perbandingan omzet (pendapatan) dan keuntungan bersih per bulan
         </p>
       </div>
@@ -332,23 +332,23 @@ function LowStockSection({
   return (
     <section
       aria-label="Peringatan stok menipis"
-      className={`overflow-hidden rounded-xl border shadow-sm ${
+      className={`overflow-hidden rounded-2xl border shadow-sm ${
         hasAlert
-          ? "border-amber-800/60 bg-slate-900"
-          : "border-slate-800 bg-slate-900"
+          ? "border-amber-200 bg-white"
+          : "border-slate-200 bg-white"
       }`}
     >
       <div
         className={`border-b px-5 py-4 ${
           hasAlert
-            ? "border-amber-800/40 bg-amber-950/25"
-            : "border-slate-800 bg-slate-950/40"
+            ? "border-amber-200 bg-amber-50"
+            : "border-slate-200 bg-slate-50"
         }`}
       >
-        <h2 className="text-base font-semibold text-white">
+        <h2 className="text-base font-semibold text-slate-800">
           Peringatan Stok Menipis
         </h2>
-        <p className="mt-0.5 text-xs text-slate-400">
+        <p className="mt-0.5 text-xs text-slate-500">
           Produk dengan stok {LOW_STOCK_THRESHOLD} unit atau kurang
         </p>
       </div>
@@ -408,11 +408,11 @@ function TopSellingSection({
   return (
     <section
       aria-label="Produk terlaris"
-      className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-sm"
+      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
-      <div className="border-b border-slate-800 bg-slate-950/40 px-5 py-4">
-        <h2 className="text-base font-semibold text-white">Produk Terlaris</h2>
-        <p className="mt-0.5 text-xs text-slate-400">
+      <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+        <h2 className="text-base font-semibold text-slate-800">Produk Terlaris</h2>
+        <p className="mt-0.5 text-xs text-slate-500">
           5 produk dengan total unit terjual tertinggi
         </p>
       </div>

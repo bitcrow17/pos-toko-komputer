@@ -190,11 +190,16 @@ export const SERVICE_KASIR_STATUS_LABEL: Record<ServiceKasirStatus, string> = {
 };
 
 export const SERVICE_KASIR_STATUS_BADGE: Record<ServiceKasirStatus, string> = {
-  PENDING: "bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/30",
-  AT_PARTNER: "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30",
-  READY_PICKUP: "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30",
-  COLLECTED: "bg-teal-500/15 text-teal-300 ring-1 ring-teal-500/30",
-  CANCELLED: "bg-red-500/15 text-red-300 ring-1 ring-red-500/30",
+  PENDING:
+    "rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
+  AT_PARTNER:
+    "rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700",
+  READY_PICKUP:
+    "rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
+  COLLECTED:
+    "rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600",
+  CANCELLED:
+    "rounded-lg border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700",
 };
 
 export function getComplaintWarning(ticket: ServiceTicket): string | null {
@@ -211,10 +216,14 @@ export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
 };
 
 export const SERVICE_STATUS_BADGE: Record<ServiceStatus, string> = {
-  QUEUED: "bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/30",
-  PROCESSING: "bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30",
-  COMPLETED: "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30",
-  CANCELLED: "bg-red-500/15 text-red-300 ring-1 ring-red-500/30",
+  QUEUED:
+    "rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
+  PROCESSING:
+    "rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700",
+  COMPLETED:
+    "rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
+  CANCELLED:
+    "rounded-lg border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700",
 };
 
 export const PARTNER_STATUS_LABEL: Record<PartnerStatus, string> = {
@@ -227,12 +236,18 @@ export const PARTNER_STATUS_LABEL: Record<PartnerStatus, string> = {
 };
 
 export const PARTNER_STATUS_BADGE: Record<PartnerStatus, string> = {
-  PENDING_SEND: "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30",
-  IN_TRANSIT: "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30",
-  RECEIVED_BY_PARTNER: "bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-500/30",
-  REPAIRED: "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30",
-  RETURN_IN_TRANSIT: "bg-orange-500/15 text-orange-300 ring-1 ring-orange-500/30",
-  RETURNED_TO_STORE: "bg-teal-500/15 text-teal-300 ring-1 ring-teal-500/30",
+  PENDING_SEND:
+    "rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
+  IN_TRANSIT:
+    "rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700",
+  RECEIVED_BY_PARTNER:
+    "rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700",
+  REPAIRED:
+    "rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
+  RETURN_IN_TRANSIT:
+    "rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700",
+  RETURNED_TO_STORE:
+    "rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
 };
 
 export const HANDLING_TYPE_LABEL: Record<

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
   addToCart as addToCartLogic,
   removeFromCart as removeFromCartLogic,
@@ -39,6 +38,14 @@ import DebtPaymentReceiptModal from "@/src/components/DebtPaymentReceiptModal";
 import KasirDebtPaymentPanel from "@/src/components/KasirDebtPaymentPanel";
 import KasirServicePanel from "@/src/components/KasirServicePanel";
 import CustomerFormModal from "@/src/components/CustomerFormModal";
+import SearchInput from "@/src/components/ui/SearchInput";
+import ModeBadge from "@/src/components/ui/ModeBadge";
+import {
+  INPUT_CLASS,
+  SELECT_CLASS,
+  TAB_GROUP_CLASS,
+  tabButtonClass,
+} from "@/lib/ui-classes";
 
 type KasirMode = "sale" | "debt" | "service";
 
@@ -643,30 +650,42 @@ export default function KasirPage() {
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const inputClass =
-    "w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500";
-  const selectClass =
-    "rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500";
+  const displayProducts = useMemo(() => {
+    const q = searchQuery.trim();
+    const base = q ? filteredProducts : catalogProducts;
+    return base.slice(0, 24);
+  }, [searchQuery, filteredProducts, catalogProducts]);
+
+  const modeBadgeMap = {
+    sale: "retail" as const,
+    service: "service" as const,
+    debt: "debt" as const,
+  };
 
   return (
     <>
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-slate-100 print:hidden">
-      {/* Header + pencarian utama (lapisan depan) */}
-      <header className="relative z-50 shrink-0 border-b border-slate-800 bg-slate-900 px-5 py-3 print:hidden">
+    <div className="flex h-screen flex-col overflow-hidden print:hidden lg:pt-0 pt-14">
+      <header
+        data-app-chrome
+        className="relative z-50 shrink-0 border-b border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-6 print:hidden"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-              Retail Komputer
-            </p>
-            <h1 className="text-lg font-semibold text-white">Kasir / POS</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600">
+                Retail Komputer
+              </p>
+              <h1 className="text-xl font-bold text-slate-800">Kasir / POS</h1>
+            </div>
+            <ModeBadge mode={modeBadgeMap[kasirMode]} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {kasirMode === "sale" && (
               <>
-                <label className="flex items-center gap-2 text-xs text-slate-400">
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
                   Pelanggan
                   <select
-                    className={selectClass}
+                    className={SELECT_CLASS}
                     value={selectedCustomerId}
                     onChange={(e) => selectCustomerById(e.target.value)}
                   >
@@ -682,16 +701,9 @@ export default function KasirPage() {
                 <button
                   type="button"
                   onClick={() => setIsQuickCustomerModalOpen(true)}
-                  className="rounded-lg border border-cyan-500/40 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+                  className="rounded-xl border border-indigo-200 px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
                 >
                   + Pelanggan Baru
-                </button>
-                <button
-                  type="button"
-                  onClick={openCatalogModal}
-                  className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-500"
-                >
-                  Cari Produk (F2)
                 </button>
               </>
             )}
@@ -699,37 +711,23 @@ export default function KasirPage() {
               <button
                 type="button"
                 onClick={() => setIsQuickCustomerModalOpen(true)}
-                className="rounded-lg border border-amber-500/40 px-3 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/10"
+                className="rounded-xl border border-amber-200 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-50"
               >
                 + Pelanggan Baru
               </button>
             )}
-            <Link
-              href="/"
-              className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
-            >
-              Dashboard
-            </Link>
           </div>
         </div>
 
-        <div
-          className="mt-3 inline-flex flex-wrap rounded-xl border border-slate-700 bg-slate-950 p-1"
-          role="tablist"
-          aria-label="Mode kasir"
-        >
+        <div className={`mt-4 ${TAB_GROUP_CLASS}`} role="tablist" aria-label="Mode kasir">
           <button
             type="button"
             role="tab"
             aria-selected={kasirMode === "sale"}
             onClick={() => setKasirMode("sale")}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-              kasirMode === "sale"
-                ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-            }`}
+            className={tabButtonClass(kasirMode === "sale", "indigo")}
           >
-            Penjualan / Kasir
+            Retail Penjualan
           </button>
           <button
             type="button"
@@ -739,13 +737,9 @@ export default function KasirPage() {
               setKasirMode("service");
               closeCatalogModal();
             }}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-              kasirMode === "service"
-                ? "bg-violet-600 text-white shadow-sm shadow-violet-900/40"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-            }`}
+            className={tabButtonClass(kasirMode === "service", "violet")}
           >
-            Servis
+            Input Servis Masuk
           </button>
           <button
             type="button"
@@ -755,11 +749,7 @@ export default function KasirPage() {
               setKasirMode("debt");
               closeCatalogModal();
             }}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-              kasirMode === "debt"
-                ? "bg-amber-600 text-white shadow-sm shadow-amber-900/40"
-                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-            }`}
+            className={tabButtonClass(kasirMode === "debt", "amber")}
           >
             Pembayaran Utang
           </button>
@@ -768,180 +758,10 @@ export default function KasirPage() {
         {alertMessage && (
           <p
             role="status"
-            className="mt-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-200"
+            className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800"
           >
             {alertMessage}
           </p>
-        )}
-
-        {kasirMode === "sale" && (
-        /* Container pencarian: input selalu di depan, dropdown di bawahnya */
-        <div className="relative z-50 mt-3">
-          <div className="relative flex gap-2">
-            <input
-              ref={searchInputRef}
-              type="search"
-              className={`${inputClass} relative z-50 flex-1 py-3 text-base shadow-lg shadow-slate-950/50`}
-              value={searchQuery}
-              onFocus={openCatalogModal}
-              onKeyDown={handleSearchKeyDown}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setIsCatalogModalOpen(true);
-              }}
-              placeholder="Scan barcode atau ketik nama / ID — Enter untuk tambah"
-              aria-expanded={isCatalogModalOpen}
-              aria-controls="catalog-dropdown"
-              autoComplete="off"
-            />
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="relative z-50 shrink-0 rounded-lg border border-slate-700 bg-slate-950 px-4 text-sm text-slate-400 hover:bg-slate-800"
-            >
-              Reset
-            </button>
-          </div>
-
-          {isCatalogModalOpen && (
-            <>
-              {/* Backdrop: di bawah header, tidak menutupi kotak pencarian */}
-              <button
-                type="button"
-                aria-label="Tutup daftar produk"
-                className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-[1px]"
-                onClick={closeCatalogModal}
-              />
-
-              <div
-                id="catalog-dropdown"
-                role="listbox"
-                className="absolute left-0 right-0 top-full z-40 mt-2 flex max-h-[min(55vh,28rem)] flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50"
-              >
-                <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
-                  <p className="text-xs text-slate-400">
-                    <span className="font-medium text-slate-200">
-                      {filteredProducts.length} hasil
-                    </span>
-                    {" · "}
-                    Enter = scan barcode / tambah item teratas · Esc = tutup
-                  </p>
-                  <button
-                    type="button"
-                    onClick={closeCatalogModal}
-                    className="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-800"
-                  >
-                    Tutup
-                  </button>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-slate-900 text-xs uppercase text-slate-500">
-                      <tr className="border-b border-slate-800">
-                        <th className="px-3 py-2">Kode</th>
-                        <th className="px-3 py-2">Nama</th>
-                        <th className="px-3 py-2">Barcode / Serial</th>
-                        <th className="px-3 py-2 text-right">Harga</th>
-                        <th className="px-3 py-2 text-center">Stok</th>
-                        <th className="px-3 py-2 text-center">Sisa</th>
-                        <th className="px-3 py-2 text-center">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProducts.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            className="px-3 py-8 text-center text-slate-500"
-                          >
-                            Produk tidak ditemukan.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredProducts.map((product) => {
-                          const outOfStock = product.stock <= 0;
-                          const available = getAvailableStock(
-                            catalogProducts,
-                            product.id,
-                            cartItems,
-                          );
-                          const cannotAdd = outOfStock || available <= 0;
-                          const topPickId = getFirstSelectableProduct()?.id;
-                          const isTopPick =
-                            !cannotAdd && product.id === topPickId;
-
-                          return (
-                            <tr
-                              key={product.id}
-                              className={`border-b border-slate-800/80 ${
-                                cannotAdd
-                                  ? "bg-slate-900/50 text-slate-500"
-                                  : "cursor-pointer hover:bg-slate-800/60"
-                              } ${isTopPick ? "bg-cyan-500/10" : ""}`}
-                              onClick={() => {
-                                if (!cannotAdd)
-                                  selectProductFromCatalog(product);
-                              }}
-                            >
-                              <td className="px-3 py-2 font-mono text-xs">
-                                {product.productCode}
-                                {isTopPick && (
-                                  <span className="ml-1 text-[10px] text-cyan-400">
-                                    ↵
-                                  </span>
-                                )}
-                              </td>
-                              <td className="max-w-[240px] px-3 py-2">
-                                <span className="line-clamp-2">
-                                  {product.name}
-                                </span>
-                                {outOfStock && (
-                                  <span className="text-xs font-medium text-red-400">
-                                    Stok Habis
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-xs text-slate-500">
-                                {product.barcode}
-                                {product.serialNumber
-                                  ? ` / ${product.serialNumber}`
-                                  : ""
-                                }
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums text-cyan-300">
-                                {formatRupiah(product.sellingPrice)}
-                              </td>
-                              <td className="px-3 py-2 text-center tabular-nums">
-                                {product.stock}
-                              </td>
-                              <td className="px-3 py-2 text-center tabular-nums">
-                                {available}
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                <button
-                                  type="button"
-                                  disabled={cannotAdd}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    selectProductFromCatalog(product);
-                                  }}
-                                  className="rounded-md bg-cyan-600 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-600 enabled:hover:bg-cyan-500"
-                                >
-                                  Pilih
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
         )}
       </header>
 
@@ -954,402 +774,465 @@ export default function KasirPage() {
       ) : kasirMode === "service" ? (
         <KasirServicePanel />
       ) : (
-      /* Main: keranjang 78% + pembayaran 22% */
-      <div className="flex min-h-0 flex-1">
-        <section className="flex w-[78%] min-w-0 flex-col border-r border-slate-800">
-          <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-                Keranjang Belanja
-              </h2>
-              <p className="text-xs text-slate-500">
-                {cartItemCount} unit · {cartItems.length} baris
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          {/* Kolom kiri: pencarian + grid produk (~68%) */}
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col border-b border-slate-200 lg:w-[68%] lg:flex-none lg:border-b-0 lg:border-r">
+            <div className="relative z-40 shrink-0 border-b border-slate-200 bg-white p-4 sm:p-5">
+              <SearchInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onFocus={openCatalogModal}
+                onKeyDown={handleSearchKeyDown}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsCatalogModalOpen(true);
+                }}
+                onClear={() => setSearchQuery("")}
+                placeholder="Scan barcode atau ketik nama / ID — Enter untuk tambah (F2)"
+                aria-expanded={isCatalogModalOpen}
+                aria-controls="catalog-dropdown"
+                autoComplete="off"
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Tekan <strong className="text-slate-700">F2</strong> untuk fokus pencarian · Enter = tambah item
               </p>
-            </div>
-            <button
-              type="button"
-              onClick={clearCart}
-              disabled={cartItems.length === 0}
-              className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 disabled:opacity-40 hover:bg-slate-800"
-            >
-              Kosongkan Keranjang
-            </button>
-          </div>
 
-          <div className="min-h-0 flex-1 overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-[1] bg-slate-950 text-xs uppercase text-slate-500">
-                <tr className="border-b border-slate-800">
-                  <th className="px-4 py-3 text-left">Produk</th>
-                  <th className="px-4 py-3 text-center">Qty</th>
-                  <th className="px-4 py-3 text-right">Harga/Unit</th>
-                  <th className="px-4 py-3 text-right">Subtotal</th>
-                  <th className="px-4 py-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cartItems.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-24 text-center text-slate-500"
-                    >
-                      Keranjang kosong. Tekan{" "}
-                      <strong className="text-slate-300">F2</strong> atau klik
-                      kolom pencarian untuk menambah barang.
-                    </td>
-                  </tr>
-                ) : (
-                  cartItems.map((item) => {
-                    const product = catalogProducts.find(
-                      (p) => p.id === item.productId,
-                    );
-                    const maxStock = product?.stock ?? item.quantity;
-
-                    return (
-                      <tr
-                        key={item.id}
-                        className="border-b border-slate-800/80 hover:bg-slate-900/50"
+              {isCatalogModalOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Tutup daftar produk"
+                    className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-[1px]"
+                    onClick={closeCatalogModal}
+                  />
+                  <div
+                    id="catalog-dropdown"
+                    role="listbox"
+                    className="absolute left-4 right-4 top-full z-40 mt-2 flex max-h-[min(50vh,24rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:left-5 sm:right-5"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
+                      <p className="text-xs text-slate-500">
+                        <span className="font-semibold text-slate-700">
+                          {filteredProducts.length} hasil
+                        </span>
+                        {" · "}Enter = scan / tambah teratas · Esc = tutup
+                      </p>
+                      <button
+                        type="button"
+                        onClick={closeCatalogModal}
+                        className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
                       >
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-100">
-                            {item.productName}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {item.productId}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateQuantity(
-                                  item.productId,
-                                  item.quantity - 1,
-                                )
-                              }
-                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800"
-                            >
-                              −
-                            </button>
-                            <input
-                              type="number"
-                              min={1}
-                              max={maxStock}
-                              className="w-14 rounded-lg border border-slate-700 bg-slate-950 py-1 text-center tabular-nums"
-                              value={
-                                qtyDraftByProduct[item.productId] ??
-                                String(item.quantity)
-                              }
-                              onChange={(e) =>
-                                setQtyDraftByProduct((prev) => ({
-                                  ...prev,
-                                  [item.productId]: e.target.value,
-                                }))
-                              }
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateQuantity(
-                                  item.productId,
-                                  item.quantity + 1,
-                                )
-                              }
-                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800"
-                            >
-                              +
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const parsed = Number(
-                                  qtyDraftByProduct[item.productId] ??
-                                    item.quantity,
-                                );
-                                updateQuantity(item.productId, parsed);
-                              }}
-                              className="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-800"
-                            >
-                              Set
-                            </button>
+                        Tutup
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-500">
+                          <tr className="border-b border-slate-200">
+                            <th className="px-3 py-2">Kode</th>
+                            <th className="px-3 py-2">Nama</th>
+                            <th className="px-3 py-2 text-right">Harga</th>
+                            <th className="px-3 py-2 text-center">Stok</th>
+                            <th className="px-3 py-2 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredProducts.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-3 py-8 text-center text-slate-500">
+                                Produk tidak ditemukan.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredProducts.map((product) => {
+                              const outOfStock = product.stock <= 0;
+                              const available = getAvailableStock(
+                                catalogProducts,
+                                product.id,
+                                cartItems,
+                              );
+                              const cannotAdd = outOfStock || available <= 0;
+                              const isTopPick =
+                                !cannotAdd &&
+                                product.id === getFirstSelectableProduct()?.id;
+                              return (
+                                <tr
+                                  key={product.id}
+                                  className={`border-b border-slate-100 ${
+                                    cannotAdd
+                                      ? "bg-slate-50 text-slate-400"
+                                      : "cursor-pointer hover:bg-indigo-50/50"
+                                  } ${isTopPick ? "bg-indigo-50" : ""}`}
+                                  onClick={() => {
+                                    if (!cannotAdd) selectProductFromCatalog(product);
+                                  }}
+                                >
+                                  <td className="px-3 py-2 font-mono text-xs">
+                                    {product.productCode}
+                                  </td>
+                                  <td className="max-w-[200px] px-3 py-2">
+                                    <span className="line-clamp-2">{product.name}</span>
+                                  </td>
+                                  <td className="px-3 py-2 text-right tabular-nums font-medium text-indigo-700">
+                                    {formatRupiah(product.sellingPrice)}
+                                  </td>
+                                  <td className="px-3 py-2 text-center tabular-nums">
+                                    {available}
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    <button
+                                      type="button"
+                                      disabled={cannotAdd}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        selectProductFromCatalog(product);
+                                      }}
+                                      className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 enabled:hover:bg-indigo-500"
+                                    >
+                                      Pilih
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Katalog Produk
+              </h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                {displayProducts.map((product) => {
+                  const available = getAvailableStock(
+                    catalogProducts,
+                    product.id,
+                    cartItems,
+                  );
+                  const cannotAdd = product.stock <= 0 || available <= 0;
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      disabled={cannotAdd}
+                      onClick={() => addToCart(product)}
+                      className="flex flex-col rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-indigo-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <p className="line-clamp-2 text-sm font-semibold text-slate-800">
+                        {product.name}
+                      </p>
+                      <p className="mt-1 font-mono text-[10px] text-slate-400">
+                        {product.productCode}
+                      </p>
+                      <p className="mt-2 text-sm font-bold tabular-nums text-indigo-700">
+                        {formatRupiah(product.sellingPrice)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Stok: {available}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* Kolom kanan: keranjang + checkout sticky (~32%) */}
+          <aside className="flex min-h-0 w-full flex-col bg-white lg:sticky lg:top-0 lg:h-[calc(100vh-9rem)] lg:w-[32%] lg:min-w-[300px] lg:max-w-[420px] lg:self-start lg:overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Keranjang Belanja</h2>
+                <p className="text-xs text-slate-500">
+                  {cartItemCount} unit · {cartItems.length} baris
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearCart}
+                disabled={cartItems.length === 0}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 disabled:opacity-40 hover:bg-slate-50"
+              >
+                Kosongkan
+              </button>
+            </div>
+
+            <div className="min-h-[120px] max-h-[240px] overflow-y-auto border-b border-slate-100 lg:max-h-[280px]">
+              {cartItems.length === 0 ? (
+                <p className="px-5 py-12 text-center text-sm text-slate-500">
+                  Keranjang kosong. Pilih produk dari katalog.
+                </p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {cartItems.map((item) => {
+                    const product = catalogProducts.find((p) => p.id === item.productId);
+                    const maxStock = product?.stock ?? item.quantity;
+                    return (
+                      <li key={item.id} className="px-4 py-3 sm:px-5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-slate-800">
+                              {item.productName}
+                            </p>
+                            <p className="text-xs tabular-nums text-indigo-700">
+                              {formatRupiah(getCartItemSubtotal(item))}
+                            </p>
                           </div>
-                          <p className="mt-1 text-center text-[10px] text-slate-600">
-                            max {maxStock}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-slate-300">
-                          {formatRupiah(item.unitSellingPrice)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums font-semibold text-cyan-300">
-                          {formatRupiah(getCartItemSubtotal(item))}
-                        </td>
-                        <td className="px-4 py-3 text-center">
                           <button
                             type="button"
                             onClick={() => removeFromCart(item.productId)}
-                            className="text-xs text-red-400 hover:text-red-300"
+                            className="shrink-0 text-xs text-red-500 hover:text-red-700"
                           >
                             Hapus
                           </button>
-                        </td>
-                      </tr>
+                        </div>
+                        <div className="mt-2 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={maxStock}
+                            className="w-12 rounded-lg border border-slate-200 py-0.5 text-center text-sm tabular-nums"
+                            value={qtyDraftByProduct[item.productId] ?? String(item.quantity)}
+                            onChange={(e) =>
+                              setQtyDraftByProduct((prev) => ({
+                                ...prev,
+                                [item.productId]: e.target.value,
+                              }))
+                            }
+                            onBlur={() => {
+                              const parsed = Number(
+                                qtyDraftByProduct[item.productId] ?? item.quantity,
+                              );
+                              updateQuantity(item.productId, parsed);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </li>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
+                  })}
+                </ul>
+              )}
+            </div>
 
             {holdTransactions.length > 0 && (
-              <div className="border-t border-slate-800 p-4">
-                <h3 className="text-xs font-semibold uppercase text-amber-200/80">
+              <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 sm:px-5">
+                <h3 className="text-xs font-semibold uppercase text-amber-800">
                   Transaksi Tertunda ({holdTransactions.length})
                 </h3>
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {holdTransactions.map((hold) => (
-                    <li
-                      key={hold.id}
-                      className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs"
-                    >
-                      <span className="text-amber-100">{hold.id}</span>
-                      <span className="text-slate-500">
-                        {hold.items.reduce((s, i) => s + i.quantity, 0)} unit
-                      </span>
+                    <li key={hold.id}>
                       <button
                         type="button"
                         onClick={() => resumeHold(hold.id)}
-                        className="rounded bg-amber-600 px-2 py-0.5 font-medium text-white hover:bg-amber-500"
+                        className="rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-500"
                       >
-                        Lanjutkan
+                        {hold.id}
                       </button>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-          </div>
-        </section>
 
-        <aside className="flex w-[22%] min-w-[280px] flex-col overflow-y-auto bg-slate-900/60">
-          <div className="shrink-0 border-b border-slate-800 p-4">
-            <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-              <p className="text-xs font-semibold uppercase text-slate-500">
-                Metode Pembayaran
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("CASH")}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-                    paymentMethod === "CASH"
-                      ? "bg-cyan-600 text-white"
-                      : "border border-slate-700 text-slate-400 hover:bg-slate-800"
-                  }`}
-                >
-                  Tunai
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentMethod("CREDIT");
-                    syncCreditCustomerFromSelection(selectedCustomer);
-                  }}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-                    paymentMethod === "CREDIT"
-                      ? "bg-amber-600 text-white"
-                      : "border border-slate-700 text-slate-400 hover:bg-slate-800"
-                  }`}
-                >
-                  Tempo / Utang
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-              <p className="text-xs font-semibold uppercase text-slate-500">
-                Diskon & Pajak
-              </p>
-              <label className="flex items-center gap-2 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={isTaxEnabled}
-                  onChange={(e) => setIsTaxEnabled(e.target.checked)}
-                  className="rounded border-slate-600"
-                />
-                PPN 11%
-              </label>
-              <div className="flex gap-2">
-                <select
-                  className={`${selectClass} flex-1`}
-                  value={discountType}
-                  onChange={(e) =>
-                    setDiscountType(e.target.value as DiscountType)
-                  }
-                >
-                  <option value="NOMINAL">Nominal (Rp)</option>
-                  <option value="PERSEN">Persen (%)</option>
-                </select>
-                <input
-                  type="number"
-                  min={0}
-                  className={`${inputClass} w-24`}
-                  value={discountValue}
-                  onChange={(e) =>
-                    setDiscountValue(Number(e.target.value) || 0)
-                  }
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setDiscountValue(0)}
-                className="text-xs text-slate-500 hover:text-slate-300"
-              >
-                Reset diskon
-              </button>
-            </div>
-
-            <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between text-slate-400">
-                <dt>Subtotal</dt>
-                <dd className="tabular-nums text-slate-200">
-                  {formatRupiah(totals.subtotal)}
-                </dd>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <dt>Diskon</dt>
-                <dd className="tabular-nums text-red-300">
-                  − {formatRupiah(totals.discountAmount)}
-                </dd>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <dt>PPN</dt>
-                <dd className="tabular-nums text-slate-200">
-                  {formatRupiah(totals.taxAmount)}
-                </dd>
-              </div>
-              <div className="flex justify-between border-t border-slate-800 pt-2 text-base font-semibold">
-                <dt className="text-slate-200">Grand Total</dt>
-                <dd className="tabular-nums text-white">
-                  {formatRupiah(totals.grandTotal)}
-                </dd>
-              </div>
-            </dl>
-
-            {paymentMethod === "CASH" ? (
-              <>
-                <label className="mt-4 block text-xs text-slate-400">
-                  Uang Bayar
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    className={`${inputClass} mt-1 text-lg font-semibold tabular-nums`}
-                    value={cashPaidInput}
-                    onChange={(e) => setCashPaidInput(e.target.value)}
-                    placeholder="0"
-                  />
-                </label>
-
-                <div
-                  className={`mt-3 flex justify-between rounded-lg px-3 py-2 text-sm ${
-                    cartItems.length > 0 && cashPaid < totals.grandTotal
-                      ? "bg-red-500/10 text-red-300"
-                      : "bg-emerald-500/10 text-emerald-300"
-                  }`}
-                >
-                  <span>Uang Kembalian</span>
-                  <span className="font-semibold tabular-nums">
-                    {cartItems.length === 0
-                      ? formatRupiah(0)
-                      : cashPaid < totals.grandTotal
-                        ? `Kurang ${formatRupiah(totals.grandTotal - cashPaid)}`
-                        : formatRupiah(Math.max(0, changeAmount))}
-                  </span>
+            <div className="flex-1 space-y-4 p-4 sm:p-5">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">Metode Pembayaran</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("CASH")}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                      paymentMethod === "CASH"
+                        ? "bg-indigo-600 text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    Tunai
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod("CREDIT");
+                      syncCreditCustomerFromSelection(selectedCustomer);
+                    }}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                      paymentMethod === "CREDIT"
+                        ? "bg-amber-600 text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    Tempo / Utang
+                  </button>
                 </div>
-              </>
-            ) : (
-              <div className="mt-4 space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
-                <p className="text-xs font-semibold uppercase text-amber-200/80">
-                  Data Tempo / Utang
-                </p>
-                <label className="block text-xs text-slate-400">
-                  Nama Pelanggan *
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">Diskon & Pajak</p>
+                <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
                   <input
-                    type="text"
-                    className={`${inputClass} mt-1`}
-                    value={creditCustomerName}
-                    onChange={(e) => setCreditCustomerName(e.target.value)}
-                    placeholder="Nama lengkap"
+                    type="checkbox"
+                    checked={isTaxEnabled}
+                    onChange={(e) => setIsTaxEnabled(e.target.checked)}
+                    className="rounded border-slate-300 text-indigo-600"
                   />
+                  PPN 11%
                 </label>
-                <label className="block text-xs text-slate-400">
-                  No. HP *
+                <div className="mt-2 flex gap-2">
+                  <select
+                    className={`${SELECT_CLASS} flex-1`}
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}
+                  >
+                    <option value="NOMINAL">Nominal (Rp)</option>
+                    <option value="PERSEN">Persen (%)</option>
+                  </select>
                   <input
-                    type="tel"
-                    className={`${inputClass} mt-1`}
-                    value={creditCustomerPhone}
-                    onChange={(e) => setCreditCustomerPhone(e.target.value)}
-                    placeholder="08xxxxxxxxxx"
+                    type="number"
+                    min={0}
+                    className={`${INPUT_CLASS} w-20`}
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
                   />
-                </label>
-                <label className="block text-xs text-slate-400">
-                  Uang Muka / DP (opsional)
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    className={`${inputClass} mt-1 tabular-nums`}
-                    value={downPaymentInput}
-                    onChange={(e) => setDownPaymentInput(e.target.value)}
-                    placeholder="0"
-                  />
-                </label>
-                <label className="block text-xs text-slate-400">
-                  Tanggal Jatuh Tempo *
-                  <input
-                    type="date"
-                    className={`${inputClass} mt-1 [color-scheme:dark]`}
-                    value={dueDateInput}
-                    onChange={(e) => setDueDateInput(e.target.value)}
-                  />
-                </label>
-                <div className="rounded-lg bg-slate-900/80 px-3 py-2 text-xs text-slate-400">
-                  <div className="flex justify-between">
-                    <span>Sisa Utang</span>
-                    <span className="font-semibold tabular-nums text-amber-200">
-                      {formatRupiah(
-                        Math.max(0, totals.grandTotal - downPayment),
-                      )}
+                </div>
+              </div>
+
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between text-slate-600">
+                  <dt>Subtotal</dt>
+                  <dd className="tabular-nums font-medium">{formatRupiah(totals.subtotal)}</dd>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <dt>Diskon</dt>
+                  <dd className="tabular-nums text-red-600">− {formatRupiah(totals.discountAmount)}</dd>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <dt>PPN</dt>
+                  <dd className="tabular-nums">{formatRupiah(totals.taxAmount)}</dd>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold text-slate-800">
+                  <dt>Grand Total</dt>
+                  <dd className="tabular-nums text-indigo-700">{formatRupiah(totals.grandTotal)}</dd>
+                </div>
+              </dl>
+
+              {paymentMethod === "CASH" ? (
+                <>
+                  <label className="block text-xs font-medium text-slate-600">
+                    Uang Bayar
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className={`${INPUT_CLASS} mt-1 text-lg font-bold tabular-nums`}
+                      value={cashPaidInput}
+                      onChange={(e) => setCashPaidInput(e.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+                  <div
+                    className={`flex justify-between rounded-xl px-3 py-2 text-sm font-medium ${
+                      cartItems.length > 0 && cashPaid < totals.grandTotal
+                        ? "bg-red-50 text-red-700"
+                        : "bg-emerald-50 text-emerald-700"
+                    }`}
+                  >
+                    <span>Kembalian</span>
+                    <span className="tabular-nums">
+                      {cartItems.length === 0
+                        ? formatRupiah(0)
+                        : cashPaid < totals.grandTotal
+                          ? `Kurang ${formatRupiah(totals.grandTotal - cashPaid)}`
+                          : formatRupiah(Math.max(0, changeAmount))}
                     </span>
                   </div>
+                </>
+              ) : (
+                <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs font-semibold uppercase text-amber-800">Data Tempo / Utang</p>
+                  <label className="block text-xs text-slate-600">
+                    Nama Pelanggan *
+                    <input
+                      type="text"
+                      className={`${INPUT_CLASS} mt-1`}
+                      value={creditCustomerName}
+                      onChange={(e) => setCreditCustomerName(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-slate-600">
+                    No. HP *
+                    <input
+                      type="tel"
+                      className={`${INPUT_CLASS} mt-1`}
+                      value={creditCustomerPhone}
+                      onChange={(e) => setCreditCustomerPhone(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-slate-600">
+                    Uang Muka (opsional)
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className={`${INPUT_CLASS} mt-1 tabular-nums`}
+                      value={downPaymentInput}
+                      onChange={(e) => setDownPaymentInput(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-slate-600">
+                    Jatuh Tempo *
+                    <input
+                      type="date"
+                      className={`${INPUT_CLASS} mt-1`}
+                      value={dueDateInput}
+                      onChange={(e) => setDueDateInput(e.target.value)}
+                    />
+                  </label>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={holdCurrentTransaction}
-                disabled={cartItems.length === 0}
-                className="rounded-xl bg-amber-600 py-3.5 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-600"
-              >
-                Tunda
-              </button>
-              <button
-                type="button"
-                onClick={completePayment}
-                disabled={!canCompletePayment}
-                className={`rounded-xl py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-600 ${
-                  paymentMethod === "CREDIT"
-                    ? "bg-amber-600 hover:bg-amber-500"
-                    : "bg-emerald-600 hover:bg-emerald-500"
-                }`}
-              >
-                {paymentMethod === "CREDIT" ? "Simpan Tempo" : "Bayar"}
-              </button>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={holdCurrentTransaction}
+                  disabled={cartItems.length === 0}
+                  className="rounded-xl border border-amber-200 bg-amber-50 py-3.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Tunda
+                </button>
+                <button
+                  type="button"
+                  onClick={completePayment}
+                  disabled={!canCompletePayment}
+                  className={`rounded-xl py-3.5 text-sm font-bold text-white shadow-lg transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none ${
+                    paymentMethod === "CREDIT"
+                      ? "bg-amber-600 hover:bg-amber-500 shadow-amber-900/20"
+                      : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20"
+                  }`}
+                >
+                  {paymentMethod === "CREDIT" ? "Simpan Tempo" : "Bayar Sekarang"}
+                </button>
+              </div>
             </div>
-          </div>
-        </aside>
-      </div>
+          </aside>
+        </div>
       )}
     </div>
 

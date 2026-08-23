@@ -3,6 +3,13 @@
 import { useMemo, useState } from "react";
 import { parseCashInput } from "@/lib/kasir-calculations";
 import { sumOutstandingDebt } from "@/lib/debt";
+import {
+  BTN_PRIMARY,
+  BTN_SUCCESS,
+  INPUT_CLASS,
+  TAB_GROUP_CLASS,
+  tabButtonClass,
+} from "@/lib/ui-classes";
 import type { Debt } from "@/types/debt";
 import type { Customer } from "@/types/customer";
 import type {
@@ -45,8 +52,7 @@ interface KasirDebtPaymentPanelProps {
   }) => DebtPaymentReceipt | null;
 }
 
-const inputClass =
-  "w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500";
+const inputClass = INPUT_CLASS;
 
 const QUICK_AMOUNTS = [50_000, 100_000, 200_000, 500_000] as const;
 
@@ -167,14 +173,14 @@ export default function KasirDebtPaymentPanel({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
-      <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+    <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-4 sm:p-6">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="space-y-4">
           <div>
-            <h2 className="text-base font-semibold text-white">
+            <h2 className="text-base font-bold text-slate-800">
               Pembayaran Utang Pelanggan
             </h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-slate-500">
               Pilih pelanggan, cek sisa utang, lalu catat pembayaran cicilan
               atau pelunasan.
             </p>
@@ -195,7 +201,7 @@ export default function KasirDebtPaymentPanel({
             />
           </label>
 
-          <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {filteredDebtors.length === 0 ? (
               <p className="px-4 py-10 text-center text-sm text-slate-500">
                 {openDebts.length === 0
@@ -216,8 +222,8 @@ export default function KasirDebtPaymentPanel({
                         onClick={() => selectCustomer(customer.id)}
                         className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition ${
                           active
-                            ? "bg-cyan-500/15 text-cyan-100"
-                            : "hover:bg-slate-800/70"
+                            ? "bg-indigo-50 text-indigo-900"
+                            : "hover:bg-slate-50"
                         }`}
                       >
                         <span>
@@ -292,8 +298,8 @@ export default function KasirDebtPaymentPanel({
           )}
         </section>
 
-        <aside className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+        <aside className="sticky top-4 self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
             Formulir Pembayaran
           </h3>
 
@@ -406,7 +412,7 @@ export default function KasirDebtPaymentPanel({
                 type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-600"
+                className={`${BTN_SUCCESS} mt-2 w-full py-3.5`}
               >
                 Proses Pembayaran Utang
               </button>

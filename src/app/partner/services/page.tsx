@@ -9,6 +9,8 @@ import {
   SERVICE_STATUS_BADGE,
   SERVICE_STATUS_LABEL,
 } from "@/lib/service";
+import { INPUT_CLASS, TABLE_BODY_CLASS, TABLE_CLASS, TABLE_HEAD_CLASS, TABLE_WRAPPER_CLASS } from "@/lib/ui-classes";
+import ComplaintBadge from "@/src/components/ui/ComplaintBadge";
 import { useApp } from "@/src/context/AppContext";
 import type { ServiceTicket } from "@/types/service";
 
@@ -30,20 +32,15 @@ function formatTimestamp(iso: string): string {
   }).format(new Date(iso));
 }
 
-const INPUT_CLASS =
-  "w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500";
+const INPUT_CLASS_LOCAL = INPUT_CLASS;
 
 function parseRupiahInput(value: string): number {
   const digits = value.replace(/\D/g, "");
   return digits ? Number(digits) : 0;
 }
 
-function ComplaintBadge() {
-  return (
-    <span className="inline-flex items-center rounded-md bg-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm shadow-red-900/40">
-      Unit Komplain / Garansi
-    </span>
-  );
+function ComplaintBadgeLocal() {
+  return <ComplaintBadge label="Unit Komplain / Garansi" />;
 }
 
 function PartnerServicesContent() {
@@ -159,27 +156,27 @@ function PartnerServicesContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/80 px-6 py-5">
+    <div className="min-h-screen bg-slate-50 text-slate-800">
+      <header className="border-b border-slate-200 bg-white px-6 py-5 shadow-sm">
         <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-cyan-500">
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">
               Portal Mitra Servis
             </p>
-            <h1 className="mt-1 text-xl font-semibold text-white">
+            <h1 className="mt-1 text-xl font-bold text-slate-800">
               {activePartner?.name ?? "Pilih Toko Mitra"}
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-slate-500">
               Hanya menampilkan tiket servis yang ditugaskan ke mitra Anda.
             </p>
           </div>
 
-          <label className="block min-w-[220px] text-sm text-slate-400">
+          <label className="block min-w-[220px] text-sm font-medium text-slate-600">
             Identitas Mitra
             <select
               value={activePartnerId}
               onChange={(e) => handlePartnerChange(e.target.value)}
-              className={`${INPUT_CLASS} mt-1.5`}
+              className={`${INPUT_CLASS_LOCAL} mt-1.5`}
             >
               {partners.map((partner) => (
                 <option key={partner.id} value={partner.id}>
@@ -192,25 +189,23 @@ function PartnerServicesContent() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Area terisolasi: data servis internal, transaksi penjualan, dan
           informasi keuangan toko utama tidak ditampilkan di portal ini.
         </div>
 
         {partnerTickets.some((t) => t.isComplaint) && (
-          <div className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            <p className="font-semibold text-red-100">
-              Ada unit komplain / garansi di daftar Anda
-            </p>
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p className="font-semibold">Ada unit komplain / garansi di daftar Anda</p>
             <p className="mt-1">
               Pastikan tidak ada klaim ongkos ganda untuk unit berlabel merah.
             </p>
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-800">
-          <table className="min-w-full divide-y divide-slate-800 text-sm">
-            <thead className="bg-slate-900/80">
+        <div className={TABLE_WRAPPER_CLASS}>
+          <table className={TABLE_CLASS}>
+            <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-slate-400">
                   Tiket
@@ -232,7 +227,7 @@ function PartnerServicesContent() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800 bg-slate-950/40">
+            <tbody className={TABLE_BODY_CLASS}>
               {partnerTickets.length === 0 ? (
                 <tr>
                   <td
@@ -246,12 +241,12 @@ function PartnerServicesContent() {
                 partnerTickets.map((ticket) => (
                   <tr
                     key={ticket.id}
-                    className={`hover:bg-slate-900/50 ${
-                      ticket.isComplaint ? "bg-red-950/20" : ""
+                    className={`hover:bg-slate-50 ${
+                      ticket.isComplaint ? "bg-red-50/50" : ""
                     }`}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-mono font-medium text-cyan-300">
+                      <p className="font-mono font-semibold text-indigo-700">
                         {ticket.ticketNo}
                       </p>
                       <p className="text-xs text-slate-500">
@@ -259,7 +254,7 @@ function PartnerServicesContent() {
                       </p>
                       {ticket.isComplaint && (
                         <div className="mt-1.5">
-                          <ComplaintBadge />
+                          <ComplaintBadgeLocal />
                         </div>
                       )}
                     </td>
@@ -315,7 +310,7 @@ function PartnerServicesContent() {
                           <button
                             type="button"
                             onClick={() => handleConfirmReceived(ticket)}
-                            className="rounded-lg bg-cyan-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-cyan-500"
+                            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500"
                           >
                             Konfirmasi Terima Unit
                           </button>
@@ -379,7 +374,7 @@ function PartnerServicesContent() {
             <div className="space-y-4 px-5 py-4">
               {feeModalTicket.isComplaint && (
                 <div className="space-y-2">
-                  <ComplaintBadge />
+                  <ComplaintBadgeLocal />
                   <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                     <p className="font-semibold text-red-100">
                       Peringatan Anti Double-Payment
@@ -398,7 +393,7 @@ function PartnerServicesContent() {
                   inputMode="numeric"
                   value={partnerFeeInput}
                   onChange={(e) => setPartnerFeeInput(e.target.value)}
-                  className={`${INPUT_CLASS} mt-1.5`}
+                  className={`${INPUT_CLASS_LOCAL} mt-1.5`}
                 />
                 {feeModalTicket.isComplaint && (
                   <span className="mt-1 block text-xs text-red-300">

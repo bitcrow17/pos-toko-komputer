@@ -9,6 +9,21 @@ import {
   SERVICE_STATUS_BADGE,
   SERVICE_STATUS_LABEL,
 } from "@/lib/service";
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  INPUT_CLASS,
+  PAGE_WRAPPER,
+  STAT_CARD,
+  TABLE_BODY_CLASS,
+  TABLE_CLASS,
+  TABLE_HEAD_CLASS,
+  TABLE_WRAPPER_CLASS,
+  TAB_GROUP_CLASS,
+  tabButtonClass,
+} from "@/lib/ui-classes";
+import ComplaintBadge from "@/src/components/ui/ComplaintBadge";
+import PageHeader from "@/src/components/ui/PageHeader";
 import PartnerFormModal from "@/src/components/PartnerFormModal";
 import ServiceFormModal from "@/src/components/ServiceFormModal";
 import ServiceIntakeReceiptModal from "@/src/components/ServiceIntakeReceiptModal";
@@ -52,8 +67,7 @@ function PrinterIcon({ className }: { className?: string }) {
   );
 }
 
-const INPUT_CLASS =
-  "w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500";
+const INPUT_CLASS_LOCAL = INPUT_CLASS;
 
 export default function AdminServicesPage() {
   const {
@@ -229,34 +243,29 @@ export default function AdminServicesPage() {
 
   return (
     <>
-      <div className="p-6 sm:p-8 print:hidden">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-white">
-              Manajemen Servis
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Servis internal toko dan penanganan via mitra rekan dengan surat
-              jalan.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={openCreatePartner}
-              className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-cyan-500/40 hover:bg-slate-900"
-            >
-              + Mitra Rekan
-            </button>
-            <button
-              type="button"
-              onClick={() => setServiceModalOpen(true)}
-              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500"
-            >
-              + Input Servis Baru
-            </button>
-          </div>
-        </header>
+      <div className={PAGE_WRAPPER}>
+        <PageHeader
+          title="Manajemen Servis"
+          subtitle="Servis internal toko dan penanganan via mitra rekan dengan surat jalan."
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={openCreatePartner}
+                className={BTN_SECONDARY}
+              >
+                + Mitra Rekan
+              </button>
+              <button
+                type="button"
+                onClick={() => setServiceModalOpen(true)}
+                className={BTN_PRIMARY}
+              >
+                + Input Servis Baru
+              </button>
+            </>
+          }
+        />
 
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -265,14 +274,11 @@ export default function AdminServicesPage() {
             { label: "Internal", value: stats.internal },
             { label: "Via Mitra", value: stats.partner },
           ].map((item) => (
-            <div
-              key={item.label}
-              className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3"
-            >
-              <p className="text-xs uppercase tracking-wide text-slate-500">
+            <div key={item.label} className={STAT_CARD}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {item.label}
               </p>
-              <p className="mt-1 text-2xl font-semibold text-white">
+              <p className="mt-1 text-2xl font-bold text-slate-800">
                 {item.value}
               </p>
             </div>
@@ -280,31 +286,31 @@ export default function AdminServicesPage() {
         </div>
 
         {partners.length > 0 && (
-          <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-300">
+          <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold text-slate-800">
               Mitra Rekan Terdaftar
             </h2>
             <div className="flex flex-wrap gap-2">
               {partners.map((partner) => (
                 <div
                   key={partner.id}
-                  className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
                 >
                   <div>
-                    <p className="font-medium text-slate-200">{partner.name}</p>
+                    <p className="font-medium text-slate-800">{partner.name}</p>
                     <p className="text-xs text-slate-500">{partner.phone}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => openEditPartner(partner)}
-                    className="rounded-lg px-2 py-1 text-xs text-cyan-400 hover:bg-slate-800"
+                    className="rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDeletePartner(partner)}
-                    className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-slate-800"
+                    className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                   >
                     Hapus
                   </button>
@@ -313,7 +319,7 @@ export default function AdminServicesPage() {
             </div>
             <p className="mt-3 text-xs text-slate-500">
               Portal mitra:{" "}
-              <code className="rounded bg-slate-800 px-1.5 py-0.5 text-cyan-300">
+              <code className="rounded-lg bg-slate-100 px-1.5 py-0.5 text-indigo-700">
                 /partner/services?partnerId=PTR-001
               </code>
             </p>
@@ -321,23 +327,19 @@ export default function AdminServicesPage() {
         )}
 
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <label className="block max-w-md flex-1 text-sm text-slate-400">
+          <label className="block max-w-md flex-1 text-sm font-medium text-slate-600">
             Cari Tiket / Pelanggan / Perangkat
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="No. tiket, nama, HP, perangkat…"
-              className={`${INPUT_CLASS} mt-1.5`}
+              className={`${INPUT_CLASS_LOCAL} mt-1.5`}
             />
           </label>
 
           <div className="flex flex-wrap gap-3">
-            <div
-              className="inline-flex rounded-xl border border-slate-700 bg-slate-900 p-1"
-              role="group"
-              aria-label="Filter penanganan"
-            >
+            <div className={TAB_GROUP_CLASS} role="group" aria-label="Filter penanganan">
               {(
                 [
                   { value: "ALL", label: "Semua" },
@@ -350,11 +352,7 @@ export default function AdminServicesPage() {
                   type="button"
                   onClick={() => setHandlingFilter(item.value)}
                   aria-pressed={handlingFilter === item.value}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                    handlingFilter === item.value
-                      ? "bg-cyan-600 text-white"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
+                  className={tabButtonClass(handlingFilter === item.value, "indigo")}
                 >
                   {item.label}
                 </button>
@@ -366,7 +364,7 @@ export default function AdminServicesPage() {
               onChange={(e) =>
                 setStatusFilter(e.target.value as ServiceStatus | "ALL")
               }
-              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+              className={INPUT_CLASS_LOCAL}
               aria-label="Filter status pengerjaan"
             >
               <option value="ALL">Semua Status</option>
@@ -381,34 +379,20 @@ export default function AdminServicesPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-800">
-          <table className="min-w-full divide-y divide-slate-800 text-sm">
-            <thead className="bg-slate-900/80">
+        <div className={TABLE_WRAPPER_CLASS}>
+          <table className={TABLE_CLASS}>
+            <thead className={TABLE_HEAD_CLASS}>
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Tiket
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Pelanggan
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Perangkat
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Penanganan
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Biaya
-                </th>
-                <th className="px-4 py-3 text-right font-medium text-slate-400">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 text-left font-semibold">Tiket</th>
+                <th className="px-4 py-3 text-left font-semibold">Pelanggan</th>
+                <th className="px-4 py-3 text-left font-semibold">Perangkat</th>
+                <th className="px-4 py-3 text-left font-semibold">Penanganan</th>
+                <th className="px-4 py-3 text-left font-semibold">Status</th>
+                <th className="px-4 py-3 text-left font-semibold">Biaya</th>
+                <th className="px-4 py-3 text-right font-semibold">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800 bg-slate-950/40">
+            <tbody className={TABLE_BODY_CLASS}>
               {filteredServices.length === 0 ? (
                 <tr>
                   <td
@@ -423,18 +407,18 @@ export default function AdminServicesPage() {
                   const partner =
                     ticket.partnerId && partnerById.get(ticket.partnerId);
                   return (
-                    <tr key={ticket.id} className="hover:bg-slate-900/50">
+                    <tr key={ticket.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3">
-                        <p className="font-mono font-medium text-cyan-300">
+                        <p className="font-mono font-semibold text-indigo-700">
                           {ticket.ticketNo}
                         </p>
                         <p className="text-xs text-slate-500">
                           {formatTimestamp(ticket.createdAt)}
                         </p>
                         {ticket.isComplaint && (
-                          <span className="mt-1 inline-flex rounded-md bg-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
-                            Unit Komplain / Garansi
-                          </span>
+                          <div className="mt-1.5">
+                            <ComplaintBadge />
+                          </div>
                         )}
                         {ticket.isPaid && (
                           <p className="mt-1 text-[11px] text-teal-400">

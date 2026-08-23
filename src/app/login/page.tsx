@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BTN_PRIMARY, CARD_CLASS, INPUT_CLASS } from "@/lib/ui-classes";
 import { useApp } from "@/src/context/AppContext";
 
 export default function LoginPage() {
@@ -33,23 +34,23 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
-            Retail Komputer
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-white">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-bold text-white shadow-lg shadow-indigo-900/20">
+            RK
+          </span>
+          <h1 className="mt-4 text-2xl font-bold text-slate-800">
             Masuk ke Sistem
           </h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Gunakan akun Admin atau Kasir untuk melanjutkan.
+          <p className="mt-2 text-sm text-slate-500">
+            Retail Komputer — POS & Manajemen Toko
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-sm sm:p-8">
+        <div className={`${CARD_CLASS} p-6 sm:p-8`}>
           <form onSubmit={handleSubmit} className="space-y-5">
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm font-medium text-slate-700">
               Username
               <input
                 type="text"
@@ -58,11 +59,11 @@ export default function LoginPage() {
                 autoComplete="username"
                 required
                 placeholder="admin atau kasir"
-                className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                className={`${INPUT_CLASS} mt-1.5`}
               />
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm font-medium text-slate-700">
               Password
               <input
                 type="password"
@@ -71,14 +72,14 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 required
                 placeholder="••••••••"
-                className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                className={`${INPUT_CLASS} mt-1.5`}
               />
             </label>
 
             {error && (
               <p
                 role="alert"
-                className="rounded-lg border border-red-500/30 bg-red-950/40 px-3 py-2.5 text-sm text-red-300"
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700"
               >
                 {error}
               </p>
@@ -87,14 +88,14 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-lg bg-cyan-600 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className={`${BTN_PRIMARY} w-full`}
             >
               {isSubmitting ? "Memproses..." : "Login"}
             </button>
           </form>
 
-          <div className="mt-6 rounded-lg border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-500">
-            <p className="font-medium text-slate-400">Akun uji coba</p>
+          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+            <p className="font-semibold text-slate-700">Akun uji coba</p>
             <p className="mt-1">Admin — admin / admin123</p>
             <p>Kasir — kasir / kasir123</p>
           </div>

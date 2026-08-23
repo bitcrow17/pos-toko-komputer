@@ -9,9 +9,15 @@ import {
   SERVICE_KASIR_STATUS_LABEL,
   type ServiceKasirStatus,
 } from "@/lib/service";
+import {
+  INPUT_CLASS,
+  TAB_GROUP_CLASS,
+  tabButtonClass,
+} from "@/lib/ui-classes";
 import { useApp } from "@/src/context/AppContext";
 import ServiceIntakeReceiptModal from "@/src/components/ServiceIntakeReceiptModal";
 import ServicePickupReceiptModal from "@/src/components/ServicePickupReceiptModal";
+import ComplaintBadge from "@/src/components/ui/ComplaintBadge";
 import type {
   ServiceAccessory,
   ServiceTicket,
@@ -33,17 +39,6 @@ function formatRupiah(value: number): string {
 function parseRupiahInput(value: string): number {
   const digits = value.replace(/\D/g, "");
   return digits ? Number(digits) : 0;
-}
-
-const INPUT_CLASS =
-  "w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500";
-
-function ComplaintBadge() {
-  return (
-    <span className="inline-flex items-center rounded-md bg-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm shadow-red-900/40">
-      Unit Komplain / Garansi
-    </span>
-  );
 }
 
 function ComplaintWarningBanner({ ticket }: { ticket: ServiceTicket }) {
@@ -271,13 +266,9 @@ export default function KasirServicePanel() {
   const changeAmount = Math.max(0, cashPaid - amountDue);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-slate-800 bg-slate-900/60 px-5 py-3">
-        <div
-          className="inline-flex flex-wrap rounded-xl border border-slate-700 bg-slate-950 p-1"
-          role="tablist"
-          aria-label="Sub-menu servis kasir"
-        >
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50">
+      <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-3">
+        <div className={TAB_GROUP_CLASS} role="tablist" aria-label="Sub-menu servis kasir">
           {(
             [
               { id: "intake", label: "Input Servis Masuk" },
@@ -291,11 +282,7 @@ export default function KasirServicePanel() {
               role="tab"
               aria-selected={subTab === tab.id}
               onClick={() => setSubTab(tab.id)}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                subTab === tab.id
-                  ? "bg-violet-600 text-white shadow-sm shadow-violet-900/40"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-              }`}
+              className={tabButtonClass(subTab === tab.id, "violet")}
             >
               {tab.label}
               {tab.id === "checkout" && readyForPickup.length > 0 && (
