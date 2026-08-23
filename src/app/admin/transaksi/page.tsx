@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react";
 import {
   getTransactionItemCount,
+  getTransactionType,
+  summarizeCashByType,
 } from "@/lib/transaction";
 import { useApp } from "@/src/context/AppContext";
 import ReceiptModal from "@/src/components/ReceiptModal";
-import type { Transaction } from "@/types/transaction";
+import type { Transaction, TransactionType } from "@/types/transaction";
 
 type TimeFilter =
   | "hari-ini"
@@ -15,12 +17,20 @@ type TimeFilter =
   | "semua"
   | "kustom";
 
+type TypeFilter = "ALL" | TransactionType;
+
 const TIME_FILTER_OPTIONS: { value: TimeFilter; label: string }[] = [
   { value: "hari-ini", label: "Hari Ini" },
   { value: "minggu-ini", label: "Minggu Ini" },
   { value: "bulan-ini", label: "Bulan Ini" },
   { value: "semua", label: "Semua" },
   { value: "kustom", label: "Kustom" },
+];
+
+const TYPE_FILTER_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: "ALL", label: "Semua Transaksi" },
+  { value: "RETAIL", label: "Penjualan Retail" },
+  { value: "SERVICE", label: "Pendapatan Servis" },
 ];
 
 const DATE_INPUT_CLASS =
@@ -145,6 +155,7 @@ export default function AdminTransaksiPage() {
   const { transactions, debts } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("hari-ini");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [customStartDate, setCustomStartDate] = useState(() =>
     formatDateInput(new Date()),
   );
@@ -163,21 +174,34 @@ export default function AdminTransaksiPage() {
     }
   }
 
+  const timeScopedTransactions = useMemo(() => {
+    return transactions.filter((tx) =>
+      matchesTimeFilter(tx.timestamp, timeFilter, {
+        customStart: customStartDate,
+        customEnd: customEndDate,
+      }),
+    );
+  }, [transactions, timeFilter, customStartDate, customEndDate]);
+
+  const cashSummary = useMemo(
+    () => summarizeCashByType(timeScopedTransactions),
+    [timeScopedTransactions],
+  );
+
   const filteredTransactions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return transactions.filter((tx) => {
-      if (
-        !matchesTimeFilter(tx.timestamp, timeFilter, {
-          customStart: customStartDate,
-          customEnd: customEndDate,
-        })
-      ) {
+    return timeScopedTransactions.filter((tx) => {
+      if (typeFilter !== "ALL" && getTransactionType(tx) !== typeFilter) {
         return false;
       }
       if (!q) return true;
-      return tx.id.toLowerCase().includes(q);
+      return (
+        tx.id.toLowerCase().includes(q) ||
+        (tx.serviceTicketNo?.toLowerCase().includes(q) ?? false) ||
+        (tx.customerName?.toLowerCase().includes(q) ?? false)
+      );
     });
-  }, [transactions, searchQuery, timeFilter, customStartDate, customEndDate]);
+  }, [timeScopedTransactions, searchQuery, typeFilter]);
 
   const filteredSummary = useMemo(
     () => ({
@@ -192,154 +216,260 @@ export default function AdminTransaksiPage() {
 
   return (
     <>
-    <div className="p-6 sm:p-8 print:hidden">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-white">Riwayat Transaksi</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Daftar transaksi yang sudah lunas dari Kasir.
-        </p>
-      </header>
+      <div className="p-6 sm:p-8 print:hidden">
+        <header className="mb-8">
+          <h1 className="text-2xl font-semibold text-white">
+            Riwayat Transaksi
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Pemisahan kas Retail vs Servis agar cocok dengan uang fisik di laci.
+          </p>
+        </header>
 
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <label className="block text-sm text-slate-400">
-          Cari Nomor Nota
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Contoh: INV-20241103-001"
-            className="mt-1.5 w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-          />
-        </label>
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <label className="block text-sm text-slate-400">
+            Cari Nomor Nota / Tiket / Pelanggan
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="INV-… / SVC-PAY-… / nama"
+              className="mt-1.5 w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+            />
+          </label>
 
-        <div className="flex flex-col items-start gap-3 lg:items-end">
-          <div
-            className="inline-flex flex-wrap rounded-lg border border-slate-700 bg-slate-900 p-1"
-            role="group"
-            aria-label="Filter rentang waktu"
-          >
-            {TIME_FILTER_OPTIONS.map((option) => {
-              const active = timeFilter === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleTimeFilterChange(option.value)}
-                  aria-pressed={active}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {timeFilter === "kustom" && (
-            <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
-              <label className="text-xs text-slate-400">
-                Tanggal Mulai
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className={`${DATE_INPUT_CLASS} mt-1 block`}
-                />
-              </label>
-              <span className="hidden pb-2 text-slate-600 sm:inline" aria-hidden>
-                —
-              </span>
-              <label className="text-xs text-slate-400">
-                Tanggal Selesai
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className={`${DATE_INPUT_CLASS} mt-1 block`}
-                />
-              </label>
+          <div className="flex flex-col items-start gap-3 lg:items-end">
+            <div
+              className="inline-flex flex-wrap rounded-lg border border-slate-700 bg-slate-900 p-1"
+              role="group"
+              aria-label="Filter rentang waktu"
+            >
+              {TIME_FILTER_OPTIONS.map((option) => {
+                const active = timeFilter === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleTimeFilterChange(option.value)}
+                    aria-pressed={active}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                      active
+                        ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
-          )}
+
+            {timeFilter === "kustom" && (
+              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+                <label className="text-xs text-slate-400">
+                  Tanggal Mulai
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className={`${DATE_INPUT_CLASS} mt-1 block`}
+                  />
+                </label>
+                <span
+                  className="hidden pb-2 text-slate-600 sm:inline"
+                  aria-hidden
+                >
+                  —
+                </span>
+                <label className="text-xs text-slate-400">
+                  Tanggal Selesai
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className={`${DATE_INPUT_CLASS} mt-1 block`}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2">
-        <article className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <p className="text-sm text-slate-400">Total Nota Terfilter</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-white">
-            {filteredSummary.totalNota.toLocaleString("id-ID")}
-          </p>
-        </article>
-        <article className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <p className="text-sm text-slate-400">Total Pendapatan Terfilter</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-cyan-300">
-            {formatRupiah(filteredSummary.totalPendapatan)}
-          </p>
-        </article>
-      </div>
+        <div
+          className="mb-6 inline-flex flex-wrap rounded-xl border border-slate-700 bg-slate-900 p-1"
+          role="tablist"
+          aria-label="Filter kategori transaksi"
+        >
+          {TYPE_FILTER_OPTIONS.map((option) => {
+            const active = typeFilter === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTypeFilter(option.value)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  active
+                    ? option.value === "SERVICE"
+                      ? "bg-violet-600 text-white shadow-sm shadow-violet-900/40"
+                      : option.value === "RETAIL"
+                        ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
+                        : "bg-slate-600 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-800 bg-slate-950/50 text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Nomor Nota</th>
-                <th className="px-4 py-3">Tanggal / Waktu</th>
-                <th className="px-4 py-3 text-center">Total Item</th>
-                <th className="px-4 py-3 text-right">Total Belanja</th>
-                <th className="px-4 py-3 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.length === 0 ? (
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-xl border border-cyan-500/20 bg-slate-900 p-4">
+            <p className="text-sm text-slate-400">Total Kas Retail</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-cyan-300">
+              {formatRupiah(cashSummary.retailCash)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Uang masuk penjualan barang (sesuai laci)
+            </p>
+          </article>
+          <article className="rounded-xl border border-violet-500/20 bg-slate-900 p-4">
+            <p className="text-sm text-slate-400">Total Kas Servis</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-violet-300">
+              {formatRupiah(cashSummary.serviceCash)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">Omset pelunasan pengambilan</p>
+          </article>
+          <article className="rounded-xl border border-orange-500/20 bg-slate-900 p-4">
+            <p className="text-sm text-slate-400">Modal / Ongkos Mitra</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-orange-300">
+              {formatRupiah(
+                cashSummary.servicePartnerCost + cashSummary.serviceSparepartCost,
+              )}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Mitra {formatRupiah(cashSummary.servicePartnerCost)} · Sparepart{" "}
+              {formatRupiah(cashSummary.serviceSparepartCost)}
+            </p>
+          </article>
+          <article className="rounded-xl border border-emerald-500/20 bg-slate-900 p-4">
+            <p className="text-sm text-slate-400">Laba Bersih Servis</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-300">
+              {formatRupiah(cashSummary.serviceNetProfit)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Omset − ongkos mitra − sparepart
+            </p>
+          </article>
+        </div>
+
+        <div className="mb-6 grid gap-4 sm:grid-cols-2">
+          <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+            <p className="text-sm text-slate-400">Nota Terfilter</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-white">
+              {filteredSummary.totalNota.toLocaleString("id-ID")}
+            </p>
+          </article>
+          <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+            <p className="text-sm text-slate-400">Nilai Nota Terfilter</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-white">
+              {formatRupiah(filteredSummary.totalPendapatan)}
+            </p>
+          </article>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-800 bg-slate-950/50 text-xs uppercase text-slate-500">
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-12 text-center text-slate-500"
-                  >
-                    {transactions.length === 0
-                      ? "Belum ada transaksi. Selesaikan pembayaran di Kasir untuk mencatat transaksi."
-                      : "Tidak ada nota yang cocok dengan filter atau pencarian."}
-                  </td>
+                  <th className="px-4 py-3">Nomor Nota</th>
+                  <th className="px-4 py-3">Kategori</th>
+                  <th className="px-4 py-3">Tanggal / Waktu</th>
+                  <th className="px-4 py-3 text-center">Item</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-center">Aksi</th>
                 </tr>
-              ) : (
-                filteredTransactions.map((tx) => (
-                  <tr
-                    key={tx.id}
-                    className="border-b border-slate-800/80 hover:bg-slate-800/40"
-                  >
-                    <td className="px-4 py-3 font-mono text-cyan-300">
-                      {tx.id}
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {formatTimestamp(tx.timestamp)}
-                    </td>
-                    <td className="px-4 py-3 text-center tabular-nums text-slate-300">
-                      {getTransactionItemCount(tx)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums font-medium text-white">
-                      {formatRupiah(tx.totalHarga)}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTransaction(tx)}
-                        className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
-                      >
-                        Lihat Detail
-                      </button>
+              </thead>
+              <tbody>
+                {filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-4 py-12 text-center text-slate-500"
+                    >
+                      {transactions.length === 0
+                        ? "Belum ada transaksi. Selesaikan pembayaran di Kasir untuk mencatat transaksi."
+                        : "Tidak ada nota yang cocok dengan filter atau pencarian."}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredTransactions.map((tx) => {
+                    const txType = getTransactionType(tx);
+                    return (
+                      <tr
+                        key={tx.id}
+                        className="border-b border-slate-800/80 hover:bg-slate-800/40"
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-mono text-cyan-300">{tx.id}</p>
+                          {tx.serviceTicketNo && (
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              Tiket {tx.serviceTicketNo}
+                            </p>
+                          )}
+                          {tx.customerName && (
+                            <p className="text-xs text-slate-500">
+                              {tx.customerName}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              txType === "SERVICE"
+                                ? "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30"
+                                : "bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-500/30"
+                            }`}
+                          >
+                            {txType === "SERVICE" ? "Servis" : "Retail"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {formatTimestamp(tx.timestamp)}
+                        </td>
+                        <td className="px-4 py-3 text-center tabular-nums text-slate-300">
+                          {getTransactionItemCount(tx)}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums font-medium text-white">
+                          {formatRupiah(tx.totalHarga)}
+                          {txType === "SERVICE" &&
+                            tx.serviceNetProfit != null && (
+                              <p className="text-xs font-normal text-emerald-400/80">
+                                Laba {formatRupiah(tx.serviceNetProfit)}
+                              </p>
+                            )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTransaction(tx)}
+                            className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
+                          >
+                            Lihat Detail
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
       {selectedTransaction && (
         <ReceiptModal

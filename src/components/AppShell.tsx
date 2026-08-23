@@ -8,7 +8,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { currentUser } = useApp();
   const isLoginPage = pathname === "/login";
-  const showSidebar = Boolean(currentUser) && !isLoginPage;
+  const isPartnerRoute = pathname.startsWith("/partner");
+  const showSidebar = Boolean(currentUser) && !isLoginPage && !isPartnerRoute;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">

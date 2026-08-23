@@ -15,6 +15,7 @@ const NAV_ITEMS: {
   { href: "/admin/transaksi", label: "Riwayat Transaksi", roles: ["admin"] },
   { href: "/admin/customers", label: "Daftar Pelanggan", roles: ["admin"] },
   { href: "/admin/debts", label: "Manajemen Utang", roles: ["admin"] },
+  { href: "/admin/services", label: "Manajemen Servis", roles: ["admin"] },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {

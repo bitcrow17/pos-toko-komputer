@@ -37,9 +37,10 @@ import type {
 import ReceiptModal from "@/src/components/ReceiptModal";
 import DebtPaymentReceiptModal from "@/src/components/DebtPaymentReceiptModal";
 import KasirDebtPaymentPanel from "@/src/components/KasirDebtPaymentPanel";
+import KasirServicePanel from "@/src/components/KasirServicePanel";
 import CustomerFormModal from "@/src/components/CustomerFormModal";
 
-type KasirMode = "sale" | "debt";
+type KasirMode = "sale" | "debt" | "service";
 
 interface HoldTransaction {
   id: string;
@@ -487,6 +488,7 @@ export default function KasirPage() {
     const newTransaction: Transaction = {
       id: invoiceId,
       timestamp: now,
+      type: "RETAIL",
       items,
       totalHarga: totals.grandTotal,
       nominalBayar: options.nominalBayar,
@@ -601,6 +603,7 @@ export default function KasirPage() {
     const cashInTransaction: Transaction = {
       id: receiptId,
       timestamp: now,
+      type: "RETAIL",
       items: [
         {
           productId: "DEBT-PAY",
@@ -727,6 +730,22 @@ export default function KasirPage() {
             }`}
           >
             Penjualan / Kasir
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={kasirMode === "service"}
+            onClick={() => {
+              setKasirMode("service");
+              closeCatalogModal();
+            }}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              kasirMode === "service"
+                ? "bg-violet-600 text-white shadow-sm shadow-violet-900/40"
+                : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            }`}
+          >
+            Servis
           </button>
           <button
             type="button"
@@ -932,6 +951,8 @@ export default function KasirPage() {
           customers={customers}
           onPay={handlePayDebtInKasir}
         />
+      ) : kasirMode === "service" ? (
+        <KasirServicePanel />
       ) : (
       /* Main: keranjang 78% + pembayaran 22% */
       <div className="flex min-h-0 flex-1">

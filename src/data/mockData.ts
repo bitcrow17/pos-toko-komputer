@@ -1,5 +1,6 @@
 import type { Product } from "@/types/product";
 import type { Customer } from "@/types/customer";
+import type { Partner, ServiceTicket } from "@/types/service";
 
 /** Data produk tiruan untuk pengembangan halaman kasir */
 export const mockProducts: Product[] = [
@@ -116,5 +117,92 @@ export const mockCustomers: Customer[] = [
     type: "REGULAR",
     creditLimit: 2_000_000,
     createdAt: "2024-03-01T10:00:00.000Z",
+  },
+];
+
+/** Mitra servis / toko rekan */
+export const mockPartners: Partner[] = [
+  {
+    id: "PTR-001",
+    name: "Komputer Jaya Service",
+    phone: "08111222333",
+    address: "Jl. Soekarno Hatta No. 102, Bandung",
+  },
+  {
+    id: "PTR-002",
+    name: "TeknoCare Bandung",
+    phone: "08122333444",
+    address: "Jl. Buah Batu No. 55, Bandung",
+  },
+];
+
+/** Tiket servis awal untuk demo */
+export const mockServices: ServiceTicket[] = [
+  {
+    id: "SRV-0001",
+    ticketNo: "SVC-2026-0001",
+    customerName: "Budi Santoso",
+    customerPhone: "081234567890",
+    deviceName: "ASUS Vivobook 15 OLED",
+    serialNumber: "SN-ASU-45821",
+    problem: "Layar flickering, kadang mati total",
+    handlingType: "INTERNAL",
+    partnerFee: 0,
+    customerFee: 350_000,
+    isComplaint: false,
+    accessories: ["UNIT", "CHARGER"],
+    estimatedCompletionDate: "2026-08-25",
+    sparepartCost: 50_000,
+    netProfit: 300_000,
+    isPaid: false,
+    status: "COMPLETED",
+    createdAt: "2026-08-20T09:00:00.000Z",
+    updatedAt: "2026-08-21T14:30:00.000Z",
+  },
+  {
+    id: "SRV-0002",
+    ticketNo: "SVC-2026-0002",
+    customerName: "Siti Aminah",
+    customerPhone: "081298765432",
+    deviceName: "MSI GeForce RTX 4060",
+    serialNumber: "SN-VGA-44070",
+    problem: "Artifact saat gaming, suhu tinggi",
+    handlingType: "PARTNER",
+    partnerId: "PTR-001",
+    partnerStatus: "IN_TRANSIT",
+    partnerFee: 0,
+    customerFee: 450_000,
+    isComplaint: false,
+    accessories: ["UNIT", "BOX"],
+    estimatedCompletionDate: "2026-08-28",
+    sparepartCost: 0,
+    netProfit: 450_000,
+    isPaid: false,
+    status: "PROCESSING",
+    createdAt: "2026-08-22T10:15:00.000Z",
+    updatedAt: "2026-08-22T11:00:00.000Z",
+  },
+  {
+    id: "SRV-0003",
+    ticketNo: "SVC-2026-0003",
+    customerName: "Budi Santoso",
+    customerPhone: "081234567890",
+    deviceName: "ASUS Vivobook 15 OLED",
+    serialNumber: "SN-ASU-45821",
+    problem: "Layar masih flickering setelah servis sebelumnya",
+    handlingType: "PARTNER",
+    partnerId: "PTR-001",
+    partnerStatus: "RECEIVED_BY_PARTNER",
+    partnerFee: 0,
+    customerFee: 0,
+    isComplaint: true,
+    originalTicketNo: "SVC-2026-0001",
+    accessories: ["UNIT", "CHARGER"],
+    sparepartCost: 0,
+    netProfit: 0,
+    isPaid: false,
+    status: "PROCESSING",
+    createdAt: "2026-08-23T08:00:00.000Z",
+    updatedAt: "2026-08-23T09:00:00.000Z",
   },
 ];

@@ -1,6 +1,9 @@
 /** Metode pembayaran transaksi */
 export type PaymentMethod = "CASH" | "QRIS" | "TRANSFER" | "CREDIT";
 
+/** Kategori kas: penjualan barang vs pendapatan servis */
+export type TransactionType = "RETAIL" | "SERVICE";
+
 /** Baris item dalam transaksi yang sudah lunas */
 export interface TransactionItem {
   productId: string;
@@ -27,4 +30,16 @@ export interface Transaction {
   customerPhone?: string;
   /** ID utang terkait (transaksi tempo) */
   debtId?: string;
+  /**
+   * Kategori kas. Default RETAIL untuk transaksi lama / penjualan barang.
+   * SERVICE = pelunasan pengambilan unit servis.
+   */
+  type?: TransactionType;
+  /** Referensi tiket servis (jika type SERVICE) */
+  serviceTicketId?: string;
+  serviceTicketNo?: string;
+  /** Snapshot biaya untuk laporan laba servis */
+  servicePartnerFee?: number;
+  serviceSparepartCost?: number;
+  serviceNetProfit?: number;
 }

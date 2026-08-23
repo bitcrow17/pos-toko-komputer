@@ -9,9 +9,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === "/login";
+  const isPartnerRoute = pathname.startsWith("/partner");
 
   useEffect(() => {
-    if (!currentUser && !isLoginPage) {
+    if (!currentUser && !isLoginPage && !isPartnerRoute) {
       router.replace("/login");
       return;
     }
@@ -21,9 +22,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         currentUser.role === "admin" ? "/admin/dashboard" : "/kasir",
       );
     }
-  }, [currentUser, isLoginPage, router]);
+  }, [currentUser, isLoginPage, isPartnerRoute, router]);
 
-  if (!currentUser && !isLoginPage) {
+  if (!currentUser && !isLoginPage && !isPartnerRoute) {
     return null;
   }
 
