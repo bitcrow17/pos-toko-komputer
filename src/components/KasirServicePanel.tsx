@@ -10,8 +10,14 @@ import {
   type ServiceKasirStatus,
 } from "@/lib/service";
 import {
+  CARD_CLASS,
   INPUT_CLASS,
+  MODAL_OVERLAY,
+  MODAL_PANEL,
   TAB_GROUP_CLASS,
+  TABLE_HEAD_CLASS,
+  TABLE_ROW_CLASS,
+  TABLE_WRAPPER_CLASS,
   tabButtonClass,
 } from "@/lib/ui-classes";
 import { useApp } from "@/src/context/AppContext";
@@ -45,8 +51,8 @@ function ComplaintWarningBanner({ ticket }: { ticket: ServiceTicket }) {
   const warning = getComplaintWarning(ticket);
   if (!warning) return null;
   return (
-    <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-      <p className="font-semibold text-red-100">Peringatan Anti Double-Payment</p>
+    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+      <p className="font-semibold text-red-900">Peringatan Anti Double-Payment</p>
       <p className="mt-0.5">{warning}</p>
     </div>
   );
@@ -299,30 +305,28 @@ export default function KasirServicePanel() {
         {subTab === "intake" && (
           <form
             onSubmit={handleIntakeSubmit}
-            className="mx-auto max-w-xl space-y-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-5"
+            className={`mx-auto max-w-xl space-y-4 ${CARD_CLASS} p-5`}
           >
             <div>
-              <h2 className="text-lg font-semibold text-white">
-                Input Servis Masuk
-              </h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <h2 className="text-lg font-bold text-slate-800">Input Servis Masuk</h2>
+              <p className="mt-1 text-sm text-slate-500">
                 Catat unit pelanggan yang masuk untuk diperbaiki.
               </p>
             </div>
 
             {intakeMessage && (
               <p
-                className={`rounded-lg px-3 py-2 text-sm ${
+                className={`rounded-xl px-3 py-2 text-sm ${
                   intakeMessage.startsWith("Tiket")
-                    ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                    : "border border-red-500/30 bg-red-500/10 text-red-300"
+                    ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border border-red-200 bg-red-50 text-red-800"
                 }`}
               >
                 {intakeMessage}
               </p>
             )}
 
-            <label className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-3 text-sm text-slate-200">
+            <label className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-slate-800">
               <input
                 type="checkbox"
                 checked={isComplaint}
@@ -330,13 +334,13 @@ export default function KasirServicePanel() {
                   setIsComplaint(e.target.checked);
                   if (e.target.checked) setCustomerFeeInput("0");
                 }}
-                className="mt-0.5 rounded border-slate-600 bg-slate-950 text-red-500"
+                className="mt-0.5 rounded border-slate-300 text-red-600"
               />
               <span>
-                <span className="font-semibold text-red-300">
+                <span className="font-semibold text-red-800">
                   Barang Komplain / Garansi Ulang
                 </span>
-                <span className="mt-0.5 block text-xs text-slate-400">
+                <span className="mt-0.5 block text-xs text-slate-500">
                   Centang jika unit sudah pernah diservis — biaya pelanggan
                   otomatis Rp 0 (anti double-payment).
                 </span>
@@ -344,7 +348,7 @@ export default function KasirServicePanel() {
             </label>
 
             {isComplaint && (
-              <label className="block text-sm text-slate-400">
+              <label className="block text-sm font-medium text-slate-600">
                 Nomor Nota / Tiket Servis Sebelumnya
                 <input
                   type="text"
@@ -358,7 +362,7 @@ export default function KasirServicePanel() {
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm text-slate-400">
+              <label className="block text-sm font-medium text-slate-600">
                 Nama Pelanggan
                 <input
                   type="text"
@@ -368,7 +372,7 @@ export default function KasirServicePanel() {
                   className={`${INPUT_CLASS} mt-1.5`}
                 />
               </label>
-              <label className="block text-sm text-slate-400">
+              <label className="block text-sm font-medium text-slate-600">
                 Nomor HP
                 <input
                   type="tel"
@@ -380,7 +384,7 @@ export default function KasirServicePanel() {
               </label>
             </div>
 
-            <label className="block text-sm text-slate-400">
+            <label className="block text-sm font-medium text-slate-600">
               Nama Perangkat
               <input
                 type="text"
@@ -391,7 +395,7 @@ export default function KasirServicePanel() {
               />
             </label>
 
-            <label className="block text-sm text-slate-400">
+            <label className="block text-sm font-medium text-slate-600">
               Serial Number (opsional)
               <input
                 type="text"
@@ -401,7 +405,7 @@ export default function KasirServicePanel() {
               />
             </label>
 
-            <label className="block text-sm text-slate-400">
+            <label className="block text-sm font-medium text-slate-600">
               Keluhan
               <textarea
                 required
@@ -413,7 +417,7 @@ export default function KasirServicePanel() {
             </label>
 
             <fieldset className="space-y-2">
-              <legend className="text-sm text-slate-400">
+              <legend className="text-sm font-medium text-slate-600">
                 Kelengkapan Unit Diterima
               </legend>
               <div className="flex flex-wrap gap-3">
@@ -425,8 +429,8 @@ export default function KasirServicePanel() {
                       key={item}
                       className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
                         checked
-                          ? "border-violet-500/50 bg-violet-500/10 text-violet-100"
-                          : "border-slate-700 text-slate-400"
+                          ? "border-violet-200 bg-violet-50 text-violet-800"
+                          : "border-slate-200 bg-slate-50 text-slate-600"
                       } ${locked ? "cursor-default" : "cursor-pointer"}`}
                     >
                       <input
@@ -434,11 +438,11 @@ export default function KasirServicePanel() {
                         checked={checked}
                         disabled={locked}
                         onChange={() => toggleAccessory(item)}
-                        className="rounded border-slate-600 bg-slate-950 text-violet-500"
+                        className="rounded border-slate-300 text-violet-600"
                       />
                       {SERVICE_ACCESSORY_LABEL[item]}
                       {locked && (
-                        <span className="text-[10px] text-slate-500">wajib</span>
+                        <span className="text-[10px] text-slate-400">wajib</span>
                       )}
                     </label>
                   );
@@ -447,27 +451,19 @@ export default function KasirServicePanel() {
             </fieldset>
 
             <fieldset className="space-y-2">
-              <legend className="text-sm text-slate-400">Penanganan</legend>
-              <div className="inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
+              <legend className="text-sm font-medium text-slate-600">Penanganan</legend>
+              <div className={TAB_GROUP_CLASS}>
                 <button
                   type="button"
                   onClick={() => setHandlingType("INTERNAL")}
-                  className={`rounded-lg px-3 py-1.5 text-sm ${
-                    handlingType === "INTERNAL"
-                      ? "bg-cyan-600 text-white"
-                      : "text-slate-400"
-                  }`}
+                  className={tabButtonClass(handlingType === "INTERNAL", "indigo")}
                 >
                   Internal
                 </button>
                 <button
                   type="button"
                   onClick={() => setHandlingType("PARTNER")}
-                  className={`rounded-lg px-3 py-1.5 text-sm ${
-                    handlingType === "PARTNER"
-                      ? "bg-cyan-600 text-white"
-                      : "text-slate-400"
-                  }`}
+                  className={tabButtonClass(handlingType === "PARTNER", "indigo")}
                 >
                   Kirim ke Mitra
                 </button>
@@ -489,7 +485,7 @@ export default function KasirServicePanel() {
             </fieldset>
 
             {!isComplaint && (
-              <label className="block text-sm text-slate-400">
+              <label className="block text-sm font-medium text-slate-600">
                 Estimasi Biaya Pelanggan (boleh diisi nanti)
                 <input
                   type="text"
@@ -502,19 +498,19 @@ export default function KasirServicePanel() {
               </label>
             )}
 
-            <label className="block text-sm text-slate-400">
+            <label className="block text-sm font-medium text-slate-600">
               Estimasi Tanggal Selesai (opsional)
               <input
                 type="date"
                 value={estimatedCompletionDate}
                 onChange={(e) => setEstimatedCompletionDate(e.target.value)}
-                className={`${INPUT_CLASS} mt-1.5 [color-scheme:dark]`}
+                className={`${INPUT_CLASS} mt-1.5`}
               />
             </label>
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500"
+              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
             >
               Simpan Tiket Servis
             </button>
@@ -555,9 +551,9 @@ export default function KasirServicePanel() {
               </select>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-slate-800">
-              <table className="min-w-full divide-y divide-slate-800 text-sm">
-                <thead className="bg-slate-900/80 text-left text-xs uppercase text-slate-500">
+            <div className={TABLE_WRAPPER_CLASS}>
+              <table className="min-w-full text-sm">
+                <thead className={TABLE_HEAD_CLASS}>
                   <tr>
                     <th className="px-4 py-3">Tiket</th>
                     <th className="px-4 py-3">Pelanggan</th>
@@ -584,7 +580,7 @@ export default function KasirServicePanel() {
                         ticket.partnerId &&
                         partnerById.get(ticket.partnerId);
                       return (
-                        <tr key={ticket.id} className="hover:bg-slate-900/40">
+                        <tr key={ticket.id} className={TABLE_ROW_CLASS}>
                           <td className="px-4 py-3">
                             <p className="font-mono text-cyan-300">
                               {ticket.ticketNo}
@@ -660,7 +656,7 @@ export default function KasirServicePanel() {
         {subTab === "checkout" && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-bold text-slate-800">
                 Pelunasan Servis Keluar
               </h2>
               <p className="mt-1 text-sm text-slate-400">
@@ -671,7 +667,7 @@ export default function KasirServicePanel() {
             </div>
 
             {readyForPickup.length === 0 ? (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-12 text-center text-slate-500">
+              <div className={`${CARD_CLASS} px-4 py-12 text-center text-slate-500`}>
                 Belum ada unit siap diambil.
               </div>
             ) : (
@@ -679,7 +675,7 @@ export default function KasirServicePanel() {
                 {readyForPickup.map((ticket) => (
                   <li
                     key={ticket.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4"
+                    className={`${CARD_CLASS} p-4`}
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
@@ -698,7 +694,7 @@ export default function KasirServicePanel() {
                             ? ` · ${ticket.serialNumber}`
                             : ""}
                         </p>
-                        <p className="text-sm font-medium text-white">
+                        <p className="text-sm font-medium text-slate-800">
                           Tagihan:{" "}
                           {ticket.isComplaint
                             ? "Rp 0 (komplain/garansi)"

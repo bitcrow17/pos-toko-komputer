@@ -12,6 +12,11 @@ import {
   YAxis,
 } from "recharts";
 import { buildCatalog } from "@/lib/kasir-catalog";
+import {
+  TABLE_BODY_CLASS,
+  TABLE_HEAD_CLASS,
+  TABLE_ROW_CLASS,
+} from "@/lib/ui-classes";
 import { useApp } from "@/src/context/AppContext";
 import type { Product } from "@/types/product";
 import type { Transaction } from "@/types/transaction";
@@ -356,7 +361,7 @@ function LowStockSection({
       {hasAlert ? (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-800 bg-slate-950/50 text-xs uppercase text-slate-500">
+            <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 <th className="px-4 py-3">Kode Barang</th>
                 <th className="px-4 py-3">Nama Produk</th>
@@ -364,24 +369,24 @@ function LowStockSection({
                 <th className="px-4 py-3 text-right">Sisa Stok</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className={TABLE_BODY_CLASS}>
               {products.map((product) => (
                 <tr
                   key={product.id}
-                  className={`border-b border-slate-800/80 ${getLowStockRowClass(product.stock)}`}
+                  className={`${TABLE_ROW_CLASS} ${getLowStockRowClass(product.stock)}`}
                 >
-                  <td className="px-4 py-3 font-mono text-cyan-300">
+                  <td className="px-4 py-3 font-mono text-sm text-indigo-700">
                     {productCodeById.get(product.id) ?? "—"}
                   </td>
-                  <td className="px-4 py-3 font-medium text-white">
+                  <td className="px-4 py-3 font-medium text-slate-800">
                     {product.name}
                   </td>
-                  <td className="px-4 py-3 capitalize text-slate-300">
+                  <td className="px-4 py-3 capitalize text-slate-500">
                     {product.category}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span
-                      className={`inline-flex min-w-[2.5rem] justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${getLowStockBadgeClass(product.stock)}`}
+                      className={`inline-flex min-w-[2.5rem] justify-center tabular-nums ${getLowStockBadgeClass(product.stock)}`}
                     >
                       {product.stock}
                     </span>
@@ -392,7 +397,7 @@ function LowStockSection({
           </table>
         </div>
       ) : (
-        <p className="px-5 py-10 text-center text-sm text-slate-400">
+        <p className="px-5 py-10 text-center text-sm text-slate-500">
           Semua stok barang dalam kondisi aman.
         </p>
       )}
@@ -423,29 +428,29 @@ function TopSellingSection({
           produk terlaris.
         </p>
       ) : (
-        <ol className="divide-y divide-slate-800">
+        <ol className="divide-y divide-slate-100">
           {products.map((item, index) => (
             <li
               key={item.productId}
-              className="flex items-center gap-4 px-5 py-4 transition hover:bg-slate-800/30"
+              className="flex items-center gap-4 px-5 py-4 transition hover:bg-slate-50"
             >
               <span
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold tabular-nums ${
                   index === 0
-                    ? "bg-cyan-600/20 text-cyan-300 ring-1 ring-cyan-500/30"
-                    : "bg-slate-800 text-slate-400"
+                    ? "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200"
+                    : "bg-slate-100 text-slate-600"
                 }`}
               >
                 {index + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-white">
+                <p className="truncate font-medium text-slate-800">
                   {item.productName}
                 </p>
                 <p className="text-xs text-slate-500">{item.productId}</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-semibold tabular-nums text-white">
+                <p className="text-lg font-semibold tabular-nums text-slate-800">
                   {item.totalQty.toLocaleString("id-ID")}
                 </p>
                 <p className="text-xs text-slate-500">unit terjual</p>

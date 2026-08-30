@@ -6,8 +6,22 @@ import {
   getTransactionType,
   summarizeCashByType,
 } from "@/lib/transaction";
+import {
+  BTN_PRIMARY,
+  INPUT_CLASS,
+  MODE_BADGE,
+  PAGE_WRAPPER,
+  STAT_CARD,
+  TAB_GROUP_CLASS,
+  TABLE_BODY_CLASS,
+  TABLE_HEAD_CLASS,
+  TABLE_ROW_CLASS,
+  TABLE_WRAPPER_CLASS,
+  tabButtonClass,
+} from "@/lib/ui-classes";
 import { useApp } from "@/src/context/AppContext";
 import ReceiptModal from "@/src/components/ReceiptModal";
+import PageHeader from "@/src/components/ui/PageHeader";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
 type TimeFilter =
@@ -33,8 +47,7 @@ const TYPE_FILTER_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: "SERVICE", label: "Pendapatan Servis" },
 ];
 
-const DATE_INPUT_CLASS =
-  "rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 [color-scheme:dark]";
+const DATE_INPUT_CLASS = INPUT_CLASS;
 
 function formatDateInput(date: Date): string {
   const y = date.getFullYear();
@@ -216,57 +229,42 @@ export default function AdminTransaksiPage() {
 
   return (
     <>
-      <div className="p-6 sm:p-8 print:hidden">
-        <header className="mb-8">
-          <h1 className="text-2xl font-semibold text-white">
-            Riwayat Transaksi
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Pemisahan kas Retail vs Servis agar cocok dengan uang fisik di laci.
-          </p>
-        </header>
+      <div className={PAGE_WRAPPER}>
+        <PageHeader
+          title="Laporan & Riwayat Transaksi"
+          subtitle="Pemisahan kas Retail vs Servis agar cocok dengan uang fisik di laci."
+        />
 
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <label className="block text-sm text-slate-400">
+          <label className="block text-sm font-medium text-slate-600">
             Cari Nomor Nota / Tiket / Pelanggan
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="INV-… / SVC-PAY-… / nama"
-              className="mt-1.5 w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              className={`${INPUT_CLASS} mt-1.5 max-w-md`}
             />
           </label>
 
           <div className="flex flex-col items-start gap-3 lg:items-end">
-            <div
-              className="inline-flex flex-wrap rounded-lg border border-slate-700 bg-slate-900 p-1"
-              role="group"
-              aria-label="Filter rentang waktu"
-            >
-              {TIME_FILTER_OPTIONS.map((option) => {
-                const active = timeFilter === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleTimeFilterChange(option.value)}
-                    aria-pressed={active}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                      active
-                        ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
-                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
+            <div className={TAB_GROUP_CLASS} role="group" aria-label="Filter rentang waktu">
+              {TIME_FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleTimeFilterChange(option.value)}
+                  aria-pressed={timeFilter === option.value}
+                  className={tabButtonClass(timeFilter === option.value, "indigo")}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
 
             {timeFilter === "kustom" && (
-              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
-                <label className="text-xs text-slate-400">
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <label className="text-xs font-medium text-slate-600">
                   Tanggal Mulai
                   <input
                     type="date"
@@ -275,13 +273,10 @@ export default function AdminTransaksiPage() {
                     className={`${DATE_INPUT_CLASS} mt-1 block`}
                   />
                 </label>
-                <span
-                  className="hidden pb-2 text-slate-600 sm:inline"
-                  aria-hidden
-                >
+                <span className="hidden pb-2 text-slate-400 sm:inline" aria-hidden>
                   —
                 </span>
-                <label className="text-xs text-slate-400">
+                <label className="text-xs font-medium text-slate-600">
                   Tanggal Selesai
                   <input
                     type="date"
@@ -295,56 +290,44 @@ export default function AdminTransaksiPage() {
           </div>
         </div>
 
-        <div
-          className="mb-6 inline-flex flex-wrap rounded-xl border border-slate-700 bg-slate-900 p-1"
-          role="tablist"
-          aria-label="Filter kategori transaksi"
-        >
-          {TYPE_FILTER_OPTIONS.map((option) => {
-            const active = typeFilter === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setTypeFilter(option.value)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                  active
-                    ? option.value === "SERVICE"
-                      ? "bg-violet-600 text-white shadow-sm shadow-violet-900/40"
-                      : option.value === "RETAIL"
-                        ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
-                        : "bg-slate-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                }`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
+        <div className={`mb-6 ${TAB_GROUP_CLASS}`} role="tablist" aria-label="Filter kategori transaksi">
+          {TYPE_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="tab"
+              aria-selected={typeFilter === option.value}
+              onClick={() => setTypeFilter(option.value)}
+              className={tabButtonClass(
+                typeFilter === option.value,
+                option.value === "SERVICE" ? "violet" : "indigo",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-xl border border-cyan-500/20 bg-slate-900 p-4">
-            <p className="text-sm text-slate-400">Total Kas Retail</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-cyan-300">
+          <article className={`${STAT_CARD} border-indigo-200`}>
+            <p className="text-sm text-slate-500">Total Kas Retail</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-indigo-700">
               {formatRupiah(cashSummary.retailCash)}
             </p>
             <p className="mt-1 text-xs text-slate-500">
               Uang masuk penjualan barang (sesuai laci)
             </p>
           </article>
-          <article className="rounded-xl border border-violet-500/20 bg-slate-900 p-4">
-            <p className="text-sm text-slate-400">Total Kas Servis</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-violet-300">
+          <article className={`${STAT_CARD} border-violet-200`}>
+            <p className="text-sm text-slate-500">Total Kas Servis</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-violet-700">
               {formatRupiah(cashSummary.serviceCash)}
             </p>
             <p className="mt-1 text-xs text-slate-500">Omset pelunasan pengambilan</p>
           </article>
-          <article className="rounded-xl border border-orange-500/20 bg-slate-900 p-4">
-            <p className="text-sm text-slate-400">Modal / Ongkos Mitra</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-orange-300">
+          <article className={`${STAT_CARD} border-amber-200`}>
+            <p className="text-sm text-slate-500">Modal / Ongkos Mitra</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-700">
               {formatRupiah(
                 cashSummary.servicePartnerCost + cashSummary.serviceSparepartCost,
               )}
@@ -354,9 +337,9 @@ export default function AdminTransaksiPage() {
               {formatRupiah(cashSummary.serviceSparepartCost)}
             </p>
           </article>
-          <article className="rounded-xl border border-emerald-500/20 bg-slate-900 p-4">
-            <p className="text-sm text-slate-400">Laba Bersih Servis</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-300">
+          <article className={`${STAT_CARD} border-emerald-200`}>
+            <p className="text-sm text-slate-500">Laba Bersih Servis</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-700">
               {formatRupiah(cashSummary.serviceNetProfit)}
             </p>
             <p className="mt-1 text-xs text-slate-500">
@@ -366,34 +349,33 @@ export default function AdminTransaksiPage() {
         </div>
 
         <div className="mb-6 grid gap-4 sm:grid-cols-2">
-          <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-            <p className="text-sm text-slate-400">Nota Terfilter</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums text-white">
+          <article className={STAT_CARD}>
+            <p className="text-sm text-slate-500">Nota Terfilter</p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-slate-800">
               {filteredSummary.totalNota.toLocaleString("id-ID")}
             </p>
           </article>
-          <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-            <p className="text-sm text-slate-400">Nilai Nota Terfilter</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums text-white">
+          <article className={STAT_CARD}>
+            <p className="text-sm text-slate-500">Nilai Nota Terfilter</p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-slate-800">
               {formatRupiah(filteredSummary.totalPendapatan)}
             </p>
           </article>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 bg-slate-950/50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-4 py-3">Nomor Nota</th>
-                  <th className="px-4 py-3">Kategori</th>
-                  <th className="px-4 py-3">Tanggal / Waktu</th>
-                  <th className="px-4 py-3 text-center">Item</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
+        <div className={TABLE_WRAPPER_CLASS}>
+          <table className="w-full text-left text-sm">
+            <thead className={TABLE_HEAD_CLASS}>
+              <tr>
+                <th className="px-4 py-3">Nomor Nota</th>
+                <th className="px-4 py-3">Kategori</th>
+                <th className="px-4 py-3">Tanggal / Waktu</th>
+                <th className="px-4 py-3 text-center">Item</th>
+                <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className={TABLE_BODY_CLASS}>
                 {filteredTransactions.length === 0 ? (
                   <tr>
                     <td
@@ -409,54 +391,46 @@ export default function AdminTransaksiPage() {
                   filteredTransactions.map((tx) => {
                     const txType = getTransactionType(tx);
                     return (
-                      <tr
-                        key={tx.id}
-                        className="border-b border-slate-800/80 hover:bg-slate-800/40"
-                      >
+                      <tr key={tx.id} className={TABLE_ROW_CLASS}>
                         <td className="px-4 py-3">
-                          <p className="font-mono text-cyan-300">{tx.id}</p>
+                          <p className="font-mono text-indigo-700">{tx.id}</p>
                           {tx.serviceTicketNo && (
                             <p className="mt-0.5 text-xs text-slate-500">
                               Tiket {tx.serviceTicketNo}
                             </p>
                           )}
                           {tx.customerName && (
-                            <p className="text-xs text-slate-500">
-                              {tx.customerName}
-                            </p>
+                            <p className="text-xs text-slate-500">{tx.customerName}</p>
                           )}
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              txType === "SERVICE"
-                                ? "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30"
-                                : "bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-500/30"
+                            className={`inline-flex rounded-lg px-2 py-0.5 text-[11px] font-semibold ${
+                              txType === "SERVICE" ? MODE_BADGE.service : MODE_BADGE.retail
                             }`}
                           >
                             {txType === "SERVICE" ? "Servis" : "Retail"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-300">
+                        <td className="px-4 py-3 text-slate-700">
                           {formatTimestamp(tx.timestamp)}
                         </td>
-                        <td className="px-4 py-3 text-center tabular-nums text-slate-300">
+                        <td className="px-4 py-3 text-center tabular-nums text-slate-700">
                           {getTransactionItemCount(tx)}
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums font-medium text-white">
+                        <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-800">
                           {formatRupiah(tx.totalHarga)}
-                          {txType === "SERVICE" &&
-                            tx.serviceNetProfit != null && (
-                              <p className="text-xs font-normal text-emerald-400/80">
-                                Laba {formatRupiah(tx.serviceNetProfit)}
-                              </p>
-                            )}
+                          {txType === "SERVICE" && tx.serviceNetProfit != null && (
+                            <p className="text-xs font-normal text-emerald-700">
+                              Laba {formatRupiah(tx.serviceNetProfit)}
+                            </p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button
                             type="button"
                             onClick={() => setSelectedTransaction(tx)}
-                            className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
+                            className={`${BTN_PRIMARY} px-3 py-1.5 text-xs`}
                           >
                             Lihat Detail
                           </button>
@@ -467,7 +441,6 @@ export default function AdminTransaksiPage() {
                 )}
               </tbody>
             </table>
-          </div>
         </div>
       </div>
 

@@ -2,8 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { CUSTOMER_TYPE_LABEL } from "@/lib/customer";
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  INPUT_CLASS,
+  PAGE_WRAPPER,
+  TAB_GROUP_CLASS,
+  TABLE_BODY_CLASS,
+  TABLE_HEAD_CLASS,
+  TABLE_ROW_CLASS,
+  TABLE_WRAPPER_CLASS,
+  tabButtonClass,
+} from "@/lib/ui-classes";
 import { useApp } from "@/src/context/AppContext";
 import CustomerFormModal from "@/src/components/CustomerFormModal";
+import PageHeader from "@/src/components/ui/PageHeader";
 import type { Customer, CustomerInput, CustomerType } from "@/types/customer";
 
 function formatRupiah(value: number): string {
@@ -15,12 +28,9 @@ function formatRupiah(value: number): string {
   }).format(value);
 }
 
-const INPUT_CLASS =
-  "w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500";
-
 const TYPE_BADGE: Record<CustomerType, string> = {
-  REGULAR: "bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/30",
-  CORPORATE: "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30",
+  REGULAR: "rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-700",
+  CORPORATE: "rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700",
 };
 
 export default function AdminCustomersPage() {
@@ -108,27 +118,19 @@ export default function AdminCustomersPage() {
 
   return (
     <>
-      <div className="p-6 sm:p-8 print:hidden">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-white">
-              Daftar Pelanggan
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Master data pelanggan / instansi untuk Kasir dan Manajemen Utang.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500"
-          >
-            + Tambah Pelanggan
-          </button>
-        </header>
+      <div className={PAGE_WRAPPER}>
+        <PageHeader
+          title="Master Pelanggan"
+          subtitle="Data pelanggan / instansi untuk Kasir dan Manajemen Utang."
+          actions={
+            <button type="button" onClick={openCreateModal} className={BTN_PRIMARY}>
+              + Tambah Pelanggan
+            </button>
+          }
+        />
 
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <label className="block max-w-md flex-1 text-sm text-slate-400">
+          <label className="block max-w-md flex-1 text-sm font-medium text-slate-600">
             Cari Nama / Kantor / HP
             <input
               type="search"
@@ -139,136 +141,108 @@ export default function AdminCustomersPage() {
             />
           </label>
 
-          <div
-            className="inline-flex flex-wrap rounded-xl border border-slate-700 bg-slate-900 p-1"
-            role="group"
-            aria-label="Filter tipe pelanggan"
-          >
+          <div className={TAB_GROUP_CLASS} role="group" aria-label="Filter tipe pelanggan">
             {(
               [
                 { value: "ALL", label: "Semua" },
                 { value: "REGULAR", label: "Biasa" },
                 { value: "CORPORATE", label: "Instansi" },
               ] as const
-            ).map((option) => {
-              const active = typeFilter === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setTypeFilter(option.value)}
-                  aria-pressed={active}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                    active
-                      ? "bg-cyan-600 text-white shadow-sm shadow-cyan-900/40"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
+            ).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setTypeFilter(option.value)}
+                aria-pressed={typeFilter === option.value}
+                className={tabButtonClass(typeFilter === option.value, "indigo")}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 bg-slate-950/50 text-xs uppercase text-slate-500">
+        <div className={TABLE_WRAPPER_CLASS}>
+          <table className="w-full text-left text-sm">
+            <thead className={TABLE_HEAD_CLASS}>
+              <tr>
+                <th className="px-4 py-3">Kode & Nama</th>
+                <th className="px-4 py-3">Kategori</th>
+                <th className="px-4 py-3">Kontak</th>
+                <th className="px-4 py-3 text-right">Sisa Utang</th>
+                <th className="px-4 py-3 text-right">Limit</th>
+                <th className="px-4 py-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className={TABLE_BODY_CLASS}>
+              {filteredCustomers.length === 0 ? (
                 <tr>
-                  <th className="px-4 py-3">Kode & Nama</th>
-                  <th className="px-4 py-3">Kategori</th>
-                  <th className="px-4 py-3">Kontak</th>
-                  <th className="px-4 py-3 text-right">Sisa Utang</th>
-                  <th className="px-4 py-3 text-right">Limit</th>
-                  <th className="px-4 py-3 text-center">Aksi</th>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                    {customers.length === 0
+                      ? "Belum ada pelanggan. Tambahkan data master pelanggan."
+                      : "Tidak ada pelanggan yang cocok dengan filter."}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredCustomers.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-12 text-center text-slate-500"
-                    >
-                      {customers.length === 0
-                        ? "Belum ada pelanggan. Tambahkan data master pelanggan."
-                        : "Tidak ada pelanggan yang cocok dengan filter."}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCustomers.map((customer) => {
-                    const outstanding =
-                      outstandingByCustomer.get(customer.id) ?? 0;
-                    return (
-                      <tr
-                        key={customer.id}
-                        className="border-b border-slate-800/80 hover:bg-slate-800/40"
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-100">
-                            {customer.name}
-                          </p>
-                          <p className="font-mono text-xs text-cyan-300">
-                            {customer.code}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_BADGE[customer.type]}`}
+              ) : (
+                filteredCustomers.map((customer) => {
+                  const outstanding = outstandingByCustomer.get(customer.id) ?? 0;
+                  return (
+                    <tr key={customer.id} className={TABLE_ROW_CLASS}>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-800">{customer.name}</p>
+                        <p className="font-mono text-xs text-indigo-600">{customer.code}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block ${TYPE_BADGE[customer.type]}`}>
+                          {customer.type}
+                        </span>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {CUSTOMER_TYPE_LABEL[customer.type]}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="tabular-nums text-slate-800">{customer.phone}</p>
+                        <p className="line-clamp-2 max-w-xs text-xs text-slate-500">
+                          {customer.address || "—"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-medium text-amber-700">
+                        {formatRupiah(outstanding)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-500">
+                        {customer.creditLimit != null
+                          ? formatRupiah(customer.creditLimit)
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(customer)}
+                            className={`${BTN_SECONDARY} px-2.5 py-1.5 text-xs`}
                           >
-                            {customer.type}
-                          </span>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {CUSTOMER_TYPE_LABEL[customer.type]}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="tabular-nums text-slate-200">
-                            {customer.phone}
-                          </p>
-                          <p className="max-w-xs text-xs text-slate-500 line-clamp-2">
-                            {customer.address || "—"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums font-medium text-amber-300">
-                          {formatRupiah(outstanding)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-slate-400">
-                          {customer.creditLimit != null
-                            ? formatRupiah(customer.creditLimit)
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(customer)}
-                              className="rounded-lg border border-slate-600 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-cyan-500/50 hover:bg-slate-800"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(customer)}
-                              className="rounded-lg border border-red-500/40 px-2.5 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-950/40"
-                            >
-                              Hapus
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(customer)}
+                            className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
 
         <p className="mt-3 text-xs text-slate-500">
-          Menampilkan {filteredCustomers.length} dari {customers.length}{" "}
-          pelanggan · Total sisa utang dihitung dari piutang berjalan.
+          Menampilkan {filteredCustomers.length} dari {customers.length} pelanggan ·
+          Total sisa utang dihitung dari piutang berjalan.
         </p>
       </div>
 
