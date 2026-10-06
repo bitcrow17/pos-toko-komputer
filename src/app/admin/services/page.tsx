@@ -72,7 +72,13 @@ const INPUT_CLASS_LOCAL = INPUT_CLASS;
 export default function AdminServicesPage() {
   const {
     services,
+    servicesLoading,
+    servicesError,
+    refreshServices,
     partners,
+    partnersLoading,
+    partnersError,
+    refreshPartners,
     addService,
     updateService,
     deleteService,
@@ -155,27 +161,27 @@ export default function AdminServicesPage() {
     setPartnerModalOpen(true);
   }
 
-  function handleSavePartner(input: Parameters<typeof addPartner>[0]) {
+  async function handleSavePartner(input: Parameters<typeof addPartner>[0]) {
     if (editingPartner) {
-      updatePartner(editingPartner.id, input);
+      await updatePartner(editingPartner.id, input);
     } else {
-      addPartner(input);
+      await addPartner(input);
     }
   }
 
-  function handleDeletePartner(partner: Partner) {
+  async function handleDeletePartner(partner: Partner) {
     const ok = window.confirm(`Hapus mitra "${partner.name}"?`);
     if (!ok) return;
     try {
-      deletePartner(partner.id);
+      await deletePartner(partner.id);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Gagal menghapus mitra.");
     }
   }
 
-  function handleSaveService(input: Parameters<typeof addService>[0]) {
+  async function handleSaveService(input: Parameters<typeof addService>[0]) {
     try {
-      const created = addService(input);
+      const created = await addService(input);
       setIntakeReceipt({ ticket: created, variant: "created" });
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Gagal menyimpan servis.");
@@ -183,9 +189,9 @@ export default function AdminServicesPage() {
     }
   }
 
-  function handleSendToPartner(ticket: ServiceTicket) {
+  async function handleSendToPartner(ticket: ServiceTicket) {
     try {
-      sendServiceToPartner(ticket.id);
+      await sendServiceToPartner(ticket.id);
       const partner = ticket.partnerId
         ? partnerById.get(ticket.partnerId)
         : undefined;
@@ -204,13 +210,13 @@ export default function AdminServicesPage() {
     }
   }
 
-  function handleConfirmReturn(ticket: ServiceTicket) {
+  async function handleConfirmReturn(ticket: ServiceTicket) {
     const ok = window.confirm(
       `Konfirmasi unit ${ticket.ticketNo} sudah kembali ke toko?`,
     );
     if (!ok) return;
     try {
-      confirmServiceReturned(ticket.id);
+      await confirmServiceReturned(ticket.id);
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Gagal konfirmasi pengembalian.",
@@ -218,14 +224,26 @@ export default function AdminServicesPage() {
     }
   }
 
-  function handleStatusChange(ticket: ServiceTicket, status: ServiceStatus) {
-    updateService(ticket.id, { status });
+  async function handleStatusChange(ticket: ServiceTicket, status: ServiceStatus) {
+    try {
+      await updateService(ticket.id, { status });
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal mengubah status servis.",
+      );
+    }
   }
 
-  function handleDeleteService(ticket: ServiceTicket) {
+  async function handleDeleteService(ticket: ServiceTicket) {
     const ok = window.confirm(`Hapus tiket servis ${ticket.ticketNo}?`);
     if (!ok) return;
-    deleteService(ticket.id);
+    try {
+      await deleteService(ticket.id);
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Gagal menghapus tiket servis.",
+      );
+    }
   }
 
   function openManifest(ticket: ServiceTicket) {
@@ -267,6 +285,29 @@ export default function AdminServicesPage() {
           }
         />
 
+        {(servicesError || partnersError) && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p>{servicesError ?? partnersError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                void refreshServices();
+                void refreshPartners();
+              }}
+              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
+
+        {(servicesLoading || partnersLoading) && (
+          <div className="mb-6 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
+            Memuat data...
+          </div>
+        )}
+
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Total Tiket", value: stats.total },
@@ -285,7 +326,11 @@ export default function AdminServicesPage() {
           ))}
         </div>
 
-        {partners.length > 0 && (
+        {partnersLoading && partners.length === 0 ? (
+          <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
+            Memuat data mitra...
+          </section>
+        ) : partners.length > 0 ? (
           <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="mb-3 text-sm font-semibold text-slate-800">
               Mitra Rekan Terdaftar
@@ -323,6 +368,11 @@ export default function AdminServicesPage() {
                 /partner/services?partnerId=PTR-001
               </code>
             </p>
+          </section>
+        ) : (
+          <section className="mb-8 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-sm">
+            Belum ada mitra. Tambahkan mitra rekan lalu data akan tersimpan di
+            tabel <code>partners</code>.
           </section>
         )}
 
@@ -393,7 +443,16 @@ export default function AdminServicesPage() {
               </tr>
             </thead>
             <tbody className={TABLE_BODY_CLASS}>
-              {filteredServices.length === 0 ? (
+              {servicesLoading ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-10 text-center text-slate-500"
+                  >
+                    Memuat data...
+                  </td>
+                </tr>
+              ) : filteredServices.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}

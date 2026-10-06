@@ -10,11 +10,33 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { mockCustomers, mockPartners, mockProducts, mockServices } from "@/src/data/mockData";
 import { createNextProductId } from "@/lib/admin-product";
 import {
+  clearAllProductsFromDb,
+  countServicesInDb,
+  deleteCustomerFromDb,
+  deletePartnerFromDb,
+  deleteProductFromDb,
+  deleteProductsFromDb,
+  deleteServiceFromDb,
+  fetchCustomers,
+  fetchPartners,
+  fetchProducts,
+  fetchServices,
+  fetchTransactions,
+  generateServicePaymentInvoiceNumberFromDb,
+  insertPartner as insertPartnerToDb,
+  insertProduct as insertProductToDb,
+  insertServiceTicket,
+  saveRetailTransaction,
+  updateCustomerInDb,
+  updatePartnerInDb,
+  updateProductInDb,
+  updateServiceInDb,
+  upsertCustomerByContact,
+} from "@/lib/supabase-db";
+import {
   applyCustomerUpdate,
-  buildCustomerFromInput,
   validateCustomerInput,
 } from "@/lib/customer";
 import type { Product } from "@/types/product";
@@ -43,7 +65,6 @@ import type {
   ServiceTicketInput,
 } from "@/types/service";
 import type { PaymentMethod } from "@/types/transaction";
-import { generateServicePaymentInvoiceNumber } from "@/lib/transaction";
 
 export type { Debt, DebtInput, DebtPaymentLog, DebtStatus };
 export type { Customer, CustomerInput };
@@ -76,43 +97,68 @@ const HARDCODED_ACCOUNTS: {
 
 export interface AppContextValue {
   products: Product[];
+  productsLoading: boolean;
+  productsError: string | null;
+  refreshProducts: () => Promise<void>;
   transactions: Transaction[];
+  transactionsLoading: boolean;
+  transactionsError: string | null;
+  refreshTransactions: () => Promise<void>;
   debts: Debt[];
   customers: Customer[];
+  customersLoading: boolean;
+  customersError: string | null;
+  refreshCustomers: () => Promise<void>;
   currentUser: CurrentUser | null;
   login: (username: string, password: string) => boolean;
   logout: () => void;
-  addProduct: (product: ProductInput) => void;
-  importProducts: (products: ProductInput[]) => void;
-  updateProduct: (id: string, updates: ProductInput) => void;
-  deleteProduct: (id: string) => void;
-  deleteMultipleProducts: (ids: string[]) => void;
-  clearAllProducts: () => void;
+  addProduct: (product: ProductInput) => Promise<Product>;
+  importProducts: (products: ProductInput[]) => Promise<void>;
+  updateProduct: (id: string, updates: ProductInput) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  deleteMultipleProducts: (ids: string[]) => Promise<void>;
+  clearAllProducts: () => Promise<void>;
   reduceStock: (productId: string, quantity: number) => void;
   addTransaction: (transaction: Transaction) => void;
   addDebt: (debtData: DebtInput) => Debt;
+  registerDebt: (debt: Debt) => void;
   payDebt: (debtId: string, paymentAmount: number, note?: string) => void;
-  addCustomer: (customerData: CustomerInput) => Customer;
-  updateCustomer: (id: string, customerData: CustomerInput) => void;
-  deleteCustomer: (id: string) => void;
+  addCustomer: (customerData: CustomerInput) => Promise<Customer>;
+  updateCustomer: (id: string, customerData: CustomerInput) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  upsertCustomerFromContact: (
+    name: string,
+    phone: string,
+    options?: { address?: string },
+  ) => Promise<Customer>;
+  rememberCustomer: (customer: Customer) => void;
   partners: Partner[];
+  partnersLoading: boolean;
+  partnersError: string | null;
+  refreshPartners: () => Promise<void>;
   services: ServiceTicket[];
-  addPartner: (partnerData: PartnerInput) => Partner;
-  updatePartner: (id: string, partnerData: PartnerInput) => void;
-  deletePartner: (id: string) => void;
-  addService: (serviceData: ServiceTicketInput) => ServiceTicket;
-  updateService: (id: string, updates: Partial<ServiceTicket>) => void;
-  deleteService: (id: string) => void;
-  sendServiceToPartner: (serviceId: string) => void;
-  confirmPartnerReceived: (serviceId: string) => void;
+  servicesLoading: boolean;
+  servicesError: string | null;
+  refreshServices: () => Promise<void>;
+  addPartner: (partnerData: PartnerInput) => Promise<Partner>;
+  updatePartner: (id: string, partnerData: PartnerInput) => Promise<void>;
+  deletePartner: (id: string) => Promise<void>;
+  addService: (serviceData: ServiceTicketInput) => Promise<ServiceTicket>;
+  updateService: (
+    id: string,
+    updates: Partial<ServiceTicket>,
+  ) => Promise<void>;
+  deleteService: (id: string) => Promise<void>;
+  sendServiceToPartner: (serviceId: string) => Promise<void>;
+  confirmPartnerReceived: (serviceId: string) => Promise<void>;
   updateServicePartnerFee: (
     serviceId: string,
     partnerFee: number,
     status?: ServiceStatus,
-  ) => void;
-  markServiceRepaired: (serviceId: string) => void;
-  sendServiceReturnToStore: (serviceId: string) => void;
-  confirmServiceReturned: (serviceId: string) => void;
+  ) => Promise<void>;
+  markServiceRepaired: (serviceId: string) => Promise<void>;
+  sendServiceReturnToStore: (serviceId: string) => Promise<void>;
+  confirmServiceReturned: (serviceId: string) => Promise<void>;
   /** Pelunasan pengambilan unit di kasir — catat kas SERVICE + tandai lunas */
   collectServicePayment: (
     serviceId: string,
@@ -121,32 +167,135 @@ export interface AppContextValue {
       nominalBayar: number;
       customerFeeOverride?: number;
     },
-  ) => Transaction;
+  ) => Promise<Transaction>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(() =>
-    mockProducts.map((p) => ({ ...p })),
-  );
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [transactionsError, setTransactionsError] = useState<string | null>(
+    null,
+  );
   const transactionsRef = useRef<Transaction[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const debtsRef = useRef<Debt[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>(() =>
-    mockCustomers.map((c) => ({ ...c })),
-  );
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
+  const [customersError, setCustomersError] = useState<string | null>(null);
   const customersRef = useRef<Customer[]>(customers);
-  const [partners, setPartners] = useState<Partner[]>(() =>
-    mockPartners.map((p) => ({ ...p })),
-  );
-  const partnersRef = useRef<Partner[]>(partners);
-  const [services, setServices] = useState<ServiceTicket[]>(() =>
-    mockServices.map((s) => ({ ...s })),
-  );
-  const servicesRef = useRef<ServiceTicket[]>(services);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [partnersLoading, setPartnersLoading] = useState(true);
+  const [partnersError, setPartnersError] = useState<string | null>(null);
+  const partnersRef = useRef<Partner[]>([]);
+  const [services, setServices] = useState<ServiceTicket[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+  const servicesRef = useRef<ServiceTicket[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  const refreshProducts = useCallback(async () => {
+    setProductsLoading(true);
+    setProductsError(null);
+    try {
+      const loaded = await fetchProducts();
+      setProducts(loaded);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memuat produk.";
+      setProductsError(message);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshProducts();
+  }, [refreshProducts]);
+
+  const refreshCustomers = useCallback(async () => {
+    setCustomersLoading(true);
+    setCustomersError(null);
+    try {
+      const loaded = await fetchCustomers();
+      setCustomers(loaded);
+      customersRef.current = loaded;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memuat pelanggan.";
+      setCustomersError(message);
+    } finally {
+      setCustomersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshCustomers();
+  }, [refreshCustomers]);
+
+  const refreshPartners = useCallback(async () => {
+    setPartnersLoading(true);
+    setPartnersError(null);
+    try {
+      const loaded = await fetchPartners();
+      setPartners(loaded);
+      partnersRef.current = loaded;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memuat mitra.";
+      setPartnersError(message);
+    } finally {
+      setPartnersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPartners();
+  }, [refreshPartners]);
+
+  const refreshServices = useCallback(async () => {
+    setServicesLoading(true);
+    setServicesError(null);
+    try {
+      const loaded = await fetchServices();
+      setServices(loaded);
+      servicesRef.current = loaded;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memuat tiket servis.";
+      setServicesError(message);
+    } finally {
+      setServicesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshServices();
+  }, [refreshServices]);
+
+  const refreshTransactions = useCallback(async () => {
+    setTransactionsLoading(true);
+    setTransactionsError(null);
+    try {
+      const loaded = await fetchTransactions();
+      setTransactions(loaded);
+      transactionsRef.current = loaded;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memuat riwayat transaksi.";
+      setTransactionsError(message);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshTransactions();
+  }, [refreshTransactions]);
 
   useEffect(() => {
     transactionsRef.current = transactions;
@@ -186,41 +335,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentUser(null);
   }, []);
 
-  const addProduct = useCallback((product: ProductInput) => {
-    setProducts((prev) => [
-      ...prev,
-      { id: createNextProductId(prev), ...product },
-    ]);
-  }, []);
+  const addProduct = useCallback(async (product: ProductInput): Promise<Product> => {
+    const id = createNextProductId(products);
+    const created = await insertProductToDb({ id, ...product });
+    setProducts((prev) => [...prev, created]);
+    return created;
+  }, [products]);
 
-  const importProducts = useCallback((items: ProductInput[]) => {
+  const importProducts = useCallback(async (items: ProductInput[]) => {
     if (items.length === 0) return;
-    setProducts((prev) => {
-      const next = [...prev];
-      for (const item of items) {
-        next.push({ id: createNextProductId(next), ...item });
-      }
-      return next;
-    });
-  }, []);
+    const created: Product[] = [];
+    let nextProducts = [...products];
+    for (const item of items) {
+      const id = createNextProductId(nextProducts);
+      const row = await insertProductToDb({ id, ...item });
+      created.push(row);
+      nextProducts = [...nextProducts, row];
+    }
+    setProducts((prev) => [...prev, ...created]);
+  }, [products]);
 
-  const updateProduct = useCallback((id: string, updates: ProductInput) => {
+  const updateProduct = useCallback(async (id: string, updates: ProductInput) => {
+    const updated = await updateProductInDb(id, updates);
     setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updates, id } : p)),
+      prev.map((p) => (p.id === id ? updated : p)),
     );
   }, []);
 
-  const deleteProduct = useCallback((id: string) => {
+  const deleteProduct = useCallback(async (id: string) => {
+    await deleteProductFromDb(id);
     setProducts((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  const deleteMultipleProducts = useCallback((ids: string[]) => {
+  const deleteMultipleProducts = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
+    await deleteProductsFromDb(ids);
     const idSet = new Set(ids);
     setProducts((prev) => prev.filter((p) => !idSet.has(p.id)));
   }, []);
 
-  const clearAllProducts = useCallback(() => {
+  const clearAllProducts = useCallback(async () => {
+    await clearAllProductsFromDb();
     setProducts([]);
   }, []);
 
@@ -254,6 +409,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     debtsRef.current = nextDebts;
     setDebts(nextDebts);
     return created;
+  }, []);
+
+  const registerDebt = useCallback((debt: Debt) => {
+    const nextDebts = [debt, ...debtsRef.current];
+    debtsRef.current = nextDebts;
+    setDebts(nextDebts);
   }, []);
 
   const payDebt = useCallback(
@@ -306,31 +467,77 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const addCustomer = useCallback((customerData: CustomerInput): Customer => {
-    const validationError = validateCustomerInput(customerData);
-    if (validationError) {
-      throw new Error(validationError);
-    }
-
-    const created = buildCustomerFromInput(customersRef.current, customerData);
-    const next = [created, ...customersRef.current];
-    customersRef.current = next;
-    setCustomers(next);
-    return created;
+  const rememberCustomer = useCallback((customer: Customer) => {
+    setCustomers((prev) => {
+      const idx = prev.findIndex((c) => c.id === customer.id);
+      const next =
+        idx >= 0
+          ? prev.map((c, i) => (i === idx ? { ...c, ...customer } : c))
+          : [customer, ...prev];
+      customersRef.current = next;
+      return next;
+    });
   }, []);
 
-  const updateCustomer = useCallback(
-    (id: string, customerData: CustomerInput) => {
+  const addCustomer = useCallback(
+    async (customerData: CustomerInput): Promise<Customer> => {
       const validationError = validateCustomerInput(customerData);
       if (validationError) {
         throw new Error(validationError);
       }
 
+      const saved = await upsertCustomerByContact({
+        name: customerData.name,
+        phone: customerData.phone,
+        address: customerData.address,
+      });
+
+      const merged: Customer = {
+        ...saved,
+        code: customerData.code?.trim() || saved.code,
+        type: customerData.type,
+        creditLimit:
+          customerData.creditLimit != null &&
+          Number.isFinite(customerData.creditLimit)
+            ? Math.max(0, customerData.creditLimit)
+            : saved.creditLimit,
+      };
+
+      rememberCustomer(merged);
+      return merged;
+    },
+    [rememberCustomer],
+  );
+
+  const updateCustomer = useCallback(
+    async (id: string, customerData: CustomerInput) => {
+      const validationError = validateCustomerInput(customerData);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
+      const existing = customersRef.current.find((c) => c.id === id);
+      if (!existing) {
+        throw new Error("Pelanggan tidak ditemukan.");
+      }
+
+      const updated = applyCustomerUpdate(existing, customerData);
+      const saved = await updateCustomerInDb(id, {
+        name: updated.name,
+        phone: updated.phone,
+        address: updated.address,
+      });
+
+      const merged: Customer = {
+        ...saved,
+        code: updated.code,
+        type: updated.type,
+        creditLimit: updated.creditLimit,
+      };
+
       setCustomers((prev) => {
         const next = prev.map((customer) =>
-          customer.id === id
-            ? applyCustomerUpdate(customer, customerData)
-            : customer,
+          customer.id === id ? merged : customer,
         );
         customersRef.current = next;
         return next;
@@ -339,7 +546,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const deleteCustomer = useCallback((id: string) => {
+  const deleteCustomer = useCallback(async (id: string) => {
     const hasOpenDebt = debtsRef.current.some(
       (debt) =>
         debt.customerId === id &&
@@ -352,6 +559,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
     }
 
+    await deleteCustomerFromDb(id);
+
     setCustomers((prev) => {
       const next = prev.filter((c) => c.id !== id);
       customersRef.current = next;
@@ -359,91 +568,133 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const touchService = useCallback(
-    (serviceId: string, updater: (ticket: ServiceTicket) => ServiceTicket) => {
-      setServices((prev) => {
-        const next = prev.map((ticket) =>
-          ticket.id === serviceId ? updater(ticket) : ticket,
-        );
-        servicesRef.current = next;
-        return next;
+  const upsertCustomerFromContact = useCallback(
+    async (
+      name: string,
+      phone: string,
+      options?: { address?: string },
+    ): Promise<Customer> => {
+      const saved = await upsertCustomerByContact({
+        name,
+        phone,
+        address: options?.address,
       });
+
+      rememberCustomer(saved);
+      return saved;
     },
-    [],
+    [rememberCustomer],
   );
 
-  const addPartner = useCallback((partnerData: PartnerInput): Partner => {
-    const validationError = validatePartnerInput(partnerData);
-    if (validationError) {
-      throw new Error(validationError);
-    }
+  const applyServiceChange = useCallback(
+    async (
+      serviceId: string,
+      updater: (ticket: ServiceTicket) => ServiceTicket,
+    ): Promise<ServiceTicket> => {
+      const current = servicesRef.current.find((s) => s.id === serviceId);
+      if (!current) throw new Error("Tiket servis tidak ditemukan.");
 
-    const created = buildPartnerFromInput(partnersRef.current, partnerData);
-    const next = [created, ...partnersRef.current];
-    partnersRef.current = next;
-    setPartners(next);
-    return created;
-  }, []);
-
-  const updatePartner = useCallback((id: string, partnerData: PartnerInput) => {
-    const validationError = validatePartnerInput(partnerData);
-    if (validationError) {
-      throw new Error(validationError);
-    }
-
-    setPartners((prev) => {
-      const next = prev.map((partner) =>
-        partner.id === id
-          ? {
-              ...partner,
-              name: partnerData.name.trim(),
-              phone: partnerData.phone.trim(),
-              address: partnerData.address.trim(),
-            }
-          : partner,
+      const nextTicket = updater(current);
+      const next = servicesRef.current.map((ticket) =>
+        ticket.id === serviceId ? nextTicket : ticket,
       );
-      partnersRef.current = next;
-      return next;
-    });
-  }, []);
+      servicesRef.current = next;
+      setServices(next);
 
-  const deletePartner = useCallback((id: string) => {
-    const hasActiveService = servicesRef.current.some(
-      (ticket) =>
-        ticket.partnerId === id &&
-        ticket.handlingType === "PARTNER" &&
-        ticket.status !== "COMPLETED" &&
-        ticket.status !== "CANCELLED",
-    );
-    if (hasActiveService) {
-      throw new Error(
-        "Mitra masih memiliki tiket servis aktif. Selesaikan terlebih dahulu.",
+      try {
+        await updateServiceInDb(nextTicket);
+        await refreshServices();
+      } catch (error) {
+        await refreshServices();
+        throw error;
+      }
+
+      return (
+        servicesRef.current.find((s) => s.id === serviceId) ?? nextTicket
       );
-    }
+    },
+    [refreshServices],
+  );
 
-    setPartners((prev) => {
-      const next = prev.filter((partner) => partner.id !== id);
-      partnersRef.current = next;
-      return next;
-    });
-  }, []);
+  const addPartner = useCallback(
+    async (partnerData: PartnerInput): Promise<Partner> => {
+      const validationError = validatePartnerInput(partnerData);
+      if (validationError) {
+        throw new Error(validationError);
+      }
 
-  const addService = useCallback((serviceData: ServiceTicketInput): ServiceTicket => {
-    const validationError = validateServiceInput(serviceData);
-    if (validationError) {
-      throw new Error(validationError);
-    }
+      const created = buildPartnerFromInput(partnersRef.current, partnerData);
+      const saved = await insertPartnerToDb(created);
+      await refreshPartners();
+      return saved;
+    },
+    [refreshPartners],
+  );
 
-    const created = buildServiceFromInput(servicesRef.current, serviceData);
-    const next = [created, ...servicesRef.current];
-    servicesRef.current = next;
-    setServices(next);
-    return created;
-  }, []);
+  const updatePartner = useCallback(
+    async (id: string, partnerData: PartnerInput) => {
+      const validationError = validatePartnerInput(partnerData);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
+      await updatePartnerInDb(id, {
+        name: partnerData.name.trim(),
+        phone: partnerData.phone.trim(),
+        address: partnerData.address.trim(),
+      });
+      await refreshPartners();
+    },
+    [refreshPartners],
+  );
+
+  const deletePartner = useCallback(
+    async (id: string) => {
+      const hasActiveService = servicesRef.current.some(
+        (ticket) =>
+          ticket.partnerId === id &&
+          ticket.handlingType === "PARTNER" &&
+          ticket.status !== "COMPLETED" &&
+          ticket.status !== "CANCELLED",
+      );
+      if (hasActiveService) {
+        throw new Error(
+          "Mitra masih memiliki tiket servis aktif. Selesaikan terlebih dahulu.",
+        );
+      }
+
+      await deletePartnerFromDb(id);
+      await refreshPartners();
+    },
+    [refreshPartners],
+  );
+
+  const addService = useCallback(
+    async (serviceData: ServiceTicketInput): Promise<ServiceTicket> => {
+      const validationError = validateServiceInput(serviceData);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
+      await upsertCustomerFromContact(
+        serviceData.customerName,
+        serviceData.customerPhone,
+      );
+
+      const sequence = (await countServicesInDb()) + 1;
+      const built = buildServiceFromInput(servicesRef.current, serviceData, {
+        ticketNo: `SVC-${new Date().getFullYear()}-${String(sequence).padStart(4, "0")}`,
+      });
+      const created = await insertServiceTicket(built);
+      await refreshServices();
+      return created;
+    },
+    [refreshServices, upsertCustomerFromContact],
+  );
 
   const updateService = useCallback(
-    (id: string, updates: Partial<ServiceTicket>) => {
-      touchService(id, (ticket) => {
+    async (id: string, updates: Partial<ServiceTicket>) => {
+      await applyServiceChange(id, (ticket) => {
         const next = {
           ...ticket,
           ...updates,
@@ -461,19 +712,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [touchService],
+    [applyServiceChange],
   );
 
-  const deleteService = useCallback((id: string) => {
-    setServices((prev) => {
-      const next = prev.filter((ticket) => ticket.id !== id);
-      servicesRef.current = next;
-      return next;
-    });
-  }, []);
+  const deleteService = useCallback(
+    async (id: string) => {
+      await deleteServiceFromDb(id);
+      await refreshServices();
+    },
+    [refreshServices],
+  );
 
   const sendServiceToPartner = useCallback(
-    (serviceId: string) => {
+    async (serviceId: string) => {
       const ticket = servicesRef.current.find((s) => s.id === serviceId);
       if (!ticket) throw new Error("Tiket servis tidak ditemukan.");
       if (ticket.handlingType !== "PARTNER") {
@@ -483,41 +734,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw new Error("Mitra belum dipilih.");
       }
 
-      touchService(serviceId, (current) => ({
+      await applyServiceChange(serviceId, (current) => ({
         ...current,
         partnerStatus: "IN_TRANSIT",
         status: current.status === "QUEUED" ? "PROCESSING" : current.status,
         updatedAt: new Date().toISOString(),
       }));
     },
-    [touchService],
+    [applyServiceChange],
   );
 
   const confirmPartnerReceived = useCallback(
-    (serviceId: string) => {
+    async (serviceId: string) => {
       const ticket = servicesRef.current.find((s) => s.id === serviceId);
       if (!ticket) throw new Error("Tiket servis tidak ditemukan.");
       if (ticket.partnerStatus !== "IN_TRANSIT") {
         throw new Error("Unit belum dalam status pengiriman.");
       }
 
-      touchService(serviceId, (current) => ({
+      await applyServiceChange(serviceId, (current) => ({
         ...current,
         partnerStatus: "RECEIVED_BY_PARTNER",
         status: "PROCESSING",
         updatedAt: new Date().toISOString(),
       }));
     },
-    [touchService],
+    [applyServiceChange],
   );
 
   const updateServicePartnerFee = useCallback(
-    (serviceId: string, partnerFee: number, status?: ServiceStatus) => {
+    async (serviceId: string, partnerFee: number, status?: ServiceStatus) => {
       if (!Number.isFinite(partnerFee) || partnerFee < 0) {
         throw new Error("Biaya mitra harus angka ≥ 0.");
       }
 
-      touchService(serviceId, (ticket) => {
+      await applyServiceChange(serviceId, (ticket) => {
         const sparepartCost = ticket.sparepartCost ?? 0;
         return {
           ...ticket,
@@ -532,23 +783,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
       });
     },
-    [touchService],
+    [applyServiceChange],
   );
 
   const markServiceRepaired = useCallback(
-    (serviceId: string) => {
-      touchService(serviceId, (ticket) => ({
+    async (serviceId: string) => {
+      await applyServiceChange(serviceId, (ticket) => ({
         ...ticket,
         partnerStatus: "REPAIRED" as PartnerStatus,
         status: "PROCESSING",
         updatedAt: new Date().toISOString(),
       }));
     },
-    [touchService],
+    [applyServiceChange],
   );
 
   const sendServiceReturnToStore = useCallback(
-    (serviceId: string) => {
+    async (serviceId: string) => {
       const ticket = servicesRef.current.find((s) => s.id === serviceId);
       if (!ticket) throw new Error("Tiket servis tidak ditemukan.");
       if (
@@ -558,42 +809,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw new Error("Unit belum siap dikirim balik ke toko utama.");
       }
 
-      touchService(serviceId, (current) => ({
+      await applyServiceChange(serviceId, (current) => ({
         ...current,
         partnerStatus: "RETURN_IN_TRANSIT",
         updatedAt: new Date().toISOString(),
       }));
     },
-    [touchService],
+    [applyServiceChange],
   );
 
   const confirmServiceReturned = useCallback(
-    (serviceId: string) => {
+    async (serviceId: string) => {
       const ticket = servicesRef.current.find((s) => s.id === serviceId);
       if (!ticket) throw new Error("Tiket servis tidak ditemukan.");
       if (ticket.partnerStatus !== "RETURN_IN_TRANSIT") {
         throw new Error("Unit belum dalam pengembalian dari mitra.");
       }
 
-      touchService(serviceId, (current) => ({
+      await applyServiceChange(serviceId, (current) => ({
         ...current,
         partnerStatus: "RETURNED_TO_STORE",
         status: "COMPLETED",
         updatedAt: new Date().toISOString(),
       }));
     },
-    [touchService],
+    [applyServiceChange],
   );
 
   const collectServicePayment = useCallback(
-    (
+    async (
       serviceId: string,
       options: {
         paymentMethod: PaymentMethod;
         nominalBayar: number;
         customerFeeOverride?: number;
       },
-    ): Transaction => {
+    ): Promise<Transaction> => {
       const ticket = servicesRef.current.find((s) => s.id === serviceId);
       if (!ticket) throw new Error("Tiket servis tidak ditemukan.");
       if (ticket.isPaid) {
@@ -638,9 +889,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sparepartCost,
       );
       const now = new Date().toISOString();
-      const invoiceId = generateServicePaymentInvoiceNumber(
-        transactionsRef.current,
-      );
+      const invoiceId = await generateServicePaymentInvoiceNumberFromDb();
       const kembalian =
         options.paymentMethod === "CASH"
           ? Math.max(0, options.nominalBayar - customerFee)
@@ -677,11 +926,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         serviceNetProfit: netProfit,
       };
 
-      const nextTransactions = [newTransaction, ...transactionsRef.current];
-      transactionsRef.current = nextTransactions;
-      setTransactions(nextTransactions);
+      await saveRetailTransaction({
+        transaction: newTransaction,
+        items: newTransaction.items,
+        stockUpdates: [],
+      });
 
-      touchService(serviceId, (current) => ({
+      await applyServiceChange(serviceId, (current) => ({
         ...current,
         customerFee,
         sparepartCost,
@@ -693,17 +944,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updatedAt: now,
       }));
 
+      await refreshTransactions();
       return newTransaction;
     },
-    [touchService],
+    [applyServiceChange, refreshTransactions],
   );
 
   const value = useMemo(
     () => ({
       products,
+      productsLoading,
+      productsError,
+      refreshProducts,
       transactions,
+      transactionsLoading,
+      transactionsError,
+      refreshTransactions,
       debts,
       customers,
+      customersLoading,
+      customersError,
+      refreshCustomers,
       currentUser,
       login,
       logout,
@@ -716,12 +977,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reduceStock,
       addTransaction,
       addDebt,
+      registerDebt,
       payDebt,
       addCustomer,
       updateCustomer,
       deleteCustomer,
+      upsertCustomerFromContact,
+      rememberCustomer,
       partners,
+      partnersLoading,
+      partnersError,
+      refreshPartners,
       services,
+      servicesLoading,
+      servicesError,
+      refreshServices,
       addPartner,
       updatePartner,
       deletePartner,
@@ -738,9 +1008,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
     [
       products,
+      productsLoading,
+      productsError,
+      refreshProducts,
       transactions,
+      transactionsLoading,
+      transactionsError,
+      refreshTransactions,
       debts,
       customers,
+      customersLoading,
+      customersError,
+      refreshCustomers,
       currentUser,
       login,
       logout,
@@ -753,12 +1032,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reduceStock,
       addTransaction,
       addDebt,
+      registerDebt,
       payDebt,
       addCustomer,
       updateCustomer,
       deleteCustomer,
+      upsertCustomerFromContact,
+      rememberCustomer,
       partners,
+      partnersLoading,
+      partnersError,
+      refreshPartners,
       services,
+      servicesLoading,
+      servicesError,
+      refreshServices,
       addPartner,
       updatePartner,
       deletePartner,

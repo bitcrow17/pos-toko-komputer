@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SERVICE_ACCESSORY_LABEL } from "@/lib/service";
+import CustomerAutocomplete from "@/src/components/CustomerAutocomplete";
 import type {
   Partner,
   ServiceAccessory,
@@ -17,7 +18,7 @@ interface ServiceFormModalProps {
   open: boolean;
   partners: Partner[];
   onClose: () => void;
-  onSave: (input: ServiceTicketInput) => void;
+  onSave: (input: ServiceTicketInput) => void | Promise<void>;
 }
 
 function parseRupiahInput(value: string): number {
@@ -46,6 +47,7 @@ export default function ServiceFormModal({
   const [accessories, setAccessories] = useState<ServiceAccessory[]>(["UNIT"]);
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -62,6 +64,7 @@ export default function ServiceFormModal({
     setAccessories(["UNIT"]);
     setEstimatedCompletionDate("");
     setError(null);
+    setIsSaving(false);
   }, [open, partners]);
 
   if (!open) return null;
@@ -75,12 +78,14 @@ export default function ServiceFormModal({
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isSaving) return;
     setError(null);
+    setIsSaving(true);
 
     try {
-      onSave({
+      await onSave({
         customerName,
         customerPhone,
         deviceName,
@@ -101,6 +106,8 @@ export default function ServiceFormModal({
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan servis.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -176,26 +183,19 @@ export default function ServiceFormModal({
             <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Data Pelanggan
             </legend>
-            <label className="block text-sm text-slate-400">
-              Nama Pelanggan
-              <input
-                type="text"
-                required
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className={`${INPUT_CLASS} mt-1.5`}
-              />
-            </label>
-            <label className="block text-sm text-slate-400">
-              Nomor HP
-              <input
-                type="tel"
-                required
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                className={`${INPUT_CLASS} mt-1.5`}
-              />
-            </label>
+            <CustomerAutocomplete
+              layout="grid"
+              name={customerName}
+              phone={customerPhone}
+              onNameChange={setCustomerName}
+              onPhoneChange={setCustomerPhone}
+              nameRequired
+              phoneRequired
+              nameLabel="Nama Pelanggan"
+              phoneLabel="Nomor HP"
+              inputClassName={INPUT_CLASS}
+              labelClassName="text-sm text-slate-400"
+            />
           </fieldset>
 
           <fieldset className="space-y-3">
@@ -357,10 +357,12 @@ export default function ServiceFormModal({
           </button>
           <button
             type="submit"
-            disabled={handlingType === "PARTNER" && partners.length === 0}
+            disabled={
+              isSaving || (handlingType === "PARTNER" && partners.length === 0)
+            }
             className="flex-1 rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Simpan Servis
+            {isSaving ? "Menyimpan…" : "Simpan Servis"}
           </button>
         </div>
       </form>

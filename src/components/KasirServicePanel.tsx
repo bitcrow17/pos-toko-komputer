@@ -21,8 +21,10 @@ import {
   tabButtonClass,
 } from "@/lib/ui-classes";
 import { useApp } from "@/src/context/AppContext";
+import { useToast } from "@/src/components/ui/Toast";
 import ServiceIntakeReceiptModal from "@/src/components/ServiceIntakeReceiptModal";
 import ServicePickupReceiptModal from "@/src/components/ServicePickupReceiptModal";
+import CustomerAutocomplete from "@/src/components/CustomerAutocomplete";
 import ComplaintBadge from "@/src/components/ui/ComplaintBadge";
 import type {
   ServiceAccessory,
@@ -87,6 +89,7 @@ export default function KasirServicePanel() {
     addService,
     collectServicePayment,
   } = useApp();
+  const { showToast } = useToast();
 
   const [subTab, setSubTab] = useState<ServiceSubTab>("intake");
   const [searchQuery, setSearchQuery] = useState("");
@@ -110,6 +113,7 @@ export default function KasirServicePanel() {
   const [accessories, setAccessories] = useState<ServiceAccessory[]>(["UNIT"]);
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState("");
   const [intakeMessage, setIntakeMessage] = useState<string | null>(null);
+  const [isSavingIntake, setIsSavingIntake] = useState(false);
 
   // Checkout payment modal
   const [payTicket, setPayTicket] = useState<ServiceTicket | null>(null);
@@ -190,6 +194,7 @@ export default function KasirServicePanel() {
 
   function handleIntakeSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isSavingIntake) return;
     setIntakeMessage(null);
 
     const input: ServiceTicketInput = {
@@ -211,15 +216,22 @@ export default function KasirServicePanel() {
       status: "QUEUED",
     };
 
-    try {
-      const created = addService(input);
-      resetIntakeForm();
-      setIntakeReceipt({ ticket: created, variant: "created" });
-    } catch (err) {
-      setIntakeMessage(
-        err instanceof Error ? err.message : "Gagal mencatat servis.",
-      );
-    }
+    void (async () => {
+      setIsSavingIntake(true);
+      try {
+        const created = await addService(input);
+        resetIntakeForm();
+        setIntakeReceipt({ ticket: created, variant: "created" });
+        showToast(`Tiket servis ${created.ticketNo} berhasil disimpan.`, "success");
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Gagal mencatat servis.";
+        setIntakeMessage(message);
+        showToast(message, "error");
+      } finally {
+        setIsSavingIntake(false);
+      }
+    })();
   }
 
   function openPayModal(ticket: ServiceTicket) {
@@ -237,30 +249,32 @@ export default function KasirServicePanel() {
     if (!payTicket) return;
     setPayError(null);
 
-    try {
-      const amountDue = payTicket.isComplaint ? 0 : payTicket.customerFee;
-      const cashPaid = parseRupiahInput(cashPaidInput);
-      const tx = collectServicePayment(payTicket.id, {
-        paymentMethod: payMethod,
-        nominalBayar: payMethod === "CASH" ? cashPaid : amountDue,
-      });
-      const updated =
-        services.find((s) => s.id === payTicket.id) ?? payTicket;
-      setPickupReceipt({
-        transaction: tx,
-        ticket: {
-          ...updated,
-          isPaid: true,
-          customerFee: amountDue,
-          paymentTransactionId: tx.id,
-        },
-      });
-      setPayTicket(null);
-    } catch (err) {
-      setPayError(
-        err instanceof Error ? err.message : "Gagal memproses pelunasan.",
-      );
-    }
+    void (async () => {
+      try {
+        const amountDue = payTicket.isComplaint ? 0 : payTicket.customerFee;
+        const cashPaid = parseRupiahInput(cashPaidInput);
+        const tx = await collectServicePayment(payTicket.id, {
+          paymentMethod: payMethod,
+          nominalBayar: payMethod === "CASH" ? cashPaid : amountDue,
+        });
+        const updated =
+          services.find((s) => s.id === payTicket.id) ?? payTicket;
+        setPickupReceipt({
+          transaction: tx,
+          ticket: {
+            ...updated,
+            isPaid: true,
+            customerFee: amountDue,
+            paymentTransactionId: tx.id,
+          },
+        });
+        setPayTicket(null);
+      } catch (err) {
+        setPayError(
+          err instanceof Error ? err.message : "Gagal memproses pelunasan.",
+        );
+      }
+    })();
   }
 
   const amountDue = payTicket
@@ -361,28 +375,19 @@ export default function KasirServicePanel() {
               </label>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-600">
-                Nama Pelanggan
-                <input
-                  type="text"
-                  required
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className={`${INPUT_CLASS} mt-1.5`}
-                />
-              </label>
-              <label className="block text-sm font-medium text-slate-600">
-                Nomor HP
-                <input
-                  type="tel"
-                  required
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className={`${INPUT_CLASS} mt-1.5`}
-                />
-              </label>
-            </div>
+            <CustomerAutocomplete
+              layout="grid"
+              name={customerName}
+              phone={customerPhone}
+              onNameChange={setCustomerName}
+              onPhoneChange={setCustomerPhone}
+              nameRequired
+              phoneRequired
+              nameLabel="Nama Pelanggan"
+              phoneLabel="Nomor HP"
+              inputClassName={INPUT_CLASS}
+              labelClassName="text-sm font-medium text-slate-600"
+            />
 
             <label className="block text-sm font-medium text-slate-600">
               Nama Perangkat
@@ -510,9 +515,17 @@ export default function KasirServicePanel() {
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
+              disabled={isSavingIntake}
+              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Simpan Tiket Servis
+              {isSavingIntake ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Menyimpan…
+                </span>
+              ) : (
+                "Simpan Tiket Servis"
+              )}
             </button>
           </form>
         )}

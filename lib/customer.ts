@@ -1,13 +1,31 @@
 import type { Customer, CustomerInput, CustomerType } from "@/types/customer";
 
-export function generateCustomerId(existing: Customer[]): string {
-  const count = existing.length + 1;
-  return `CUS-${String(count).padStart(4, "0")}`;
+/** Normalisasi nomor HP untuk perbandingan */
+export function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("62") && digits.length > 10) {
+    return `0${digits.slice(2)}`;
+  }
+  return digits;
 }
 
-export function generateCustomerCode(existing: Customer[]): string {
-  const count = existing.length + 1;
-  return `PLG-${String(count).padStart(4, "0")}`;
+export function generateCustomerId(): string {
+  return `CUS-${Date.now()}`;
+}
+
+export function generateCustomerCode(id: string): string {
+  if (id.startsWith("CUS-")) {
+    return `PLG-${id.slice(4)}`;
+  }
+  return id;
+}
+
+export function dedupeCustomers(list: Customer[]): Customer[] {
+  const map = new Map<string, Customer>();
+  for (const customer of list) {
+    map.set(customer.id, customer);
+  }
+  return Array.from(map.values());
 }
 
 export function validateCustomerInput(input: CustomerInput): string | null {
@@ -30,7 +48,7 @@ export function validateCustomerInput(input: CustomerInput): string | null {
 }
 
 export function buildCustomerFromInput(
-  existing: Customer[],
+  _existing: Customer[],
   input: CustomerInput,
 ): Customer {
   const validationError = validateCustomerInput(input);
@@ -38,10 +56,11 @@ export function buildCustomerFromInput(
     throw new Error(validationError);
   }
 
-  const code = input.code?.trim() || generateCustomerCode(existing);
+  const id = generateCustomerId();
+  const code = input.code?.trim() || generateCustomerCode(id);
 
   return {
-    id: generateCustomerId(existing),
+    id,
     code,
     name: input.name.trim(),
     phone: input.phone.trim(),

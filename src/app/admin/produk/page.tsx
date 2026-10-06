@@ -261,6 +261,9 @@ function StockBadge({ stock }: { stock: number }) {
 export default function AdminProdukPage() {
   const {
     products,
+    productsLoading,
+    productsError,
+    refreshProducts,
     addProduct,
     importProducts,
     updateProduct,
@@ -284,6 +287,7 @@ export default function AdminProdukPage() {
   const [filterLowStock, setFilterLowStock] = useState(false);
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [isSaving, setIsSaving] = useState(false);
 
   const isEditMode = editingId !== null;
 
@@ -382,14 +386,25 @@ export default function AdminProdukPage() {
     );
     if (!ok) return;
 
-    deleteMultipleProducts(selectedProductIds);
-    if (editingId && selectedProductIds.includes(editingId)) {
-      closeFormModal();
-    }
-    setSelectedProductIds([]);
-    setStatusMessage(
-      `Berhasil menghapus ${count.toLocaleString("id-ID")} produk terpilih.`,
-    );
+    void (async () => {
+      setIsSaving(true);
+      try {
+        await deleteMultipleProducts(selectedProductIds);
+        if (editingId && selectedProductIds.includes(editingId)) {
+          closeFormModal();
+        }
+        setSelectedProductIds([]);
+        setStatusMessage(
+          `Berhasil menghapus ${count.toLocaleString("id-ID")} produk terpilih.`,
+        );
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "Gagal menghapus produk.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   }
 
   function openClearAllModal() {
@@ -406,13 +421,24 @@ export default function AdminProdukPage() {
     if (clearConfirmText.trim() !== "HAPUS") return;
 
     const count = products.length;
-    clearAllProducts();
-    if (editingId) closeFormModal();
-    setSelectedProductIds([]);
-    closeClearAllModal();
-    setStatusMessage(
-      `Seluruh data produk (${count.toLocaleString("id-ID")} item) berhasil dihapus.`,
-    );
+    void (async () => {
+      setIsSaving(true);
+      try {
+        await clearAllProducts();
+        if (editingId) closeFormModal();
+        setSelectedProductIds([]);
+        closeClearAllModal();
+        setStatusMessage(
+          `Seluruh data produk (${count.toLocaleString("id-ID")} item) berhasil dihapus.`,
+        );
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "Gagal menghapus produk.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   }
 
   function handleSort(field: SortField) {
@@ -472,13 +498,25 @@ export default function AdminProdukPage() {
     const ok = window.confirm(`Hapus produk "${target.name}"?`);
     if (!ok) return;
 
-    deleteProduct(id);
-    if (editingId === id) closeFormModal();
-    setStatusMessage(`Produk dihapus: ${target.name}`);
+    void (async () => {
+      setIsSaving(true);
+      try {
+        await deleteProduct(id);
+        if (editingId === id) closeFormModal();
+        setStatusMessage(`Produk dihapus: ${target.name}`);
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "Gagal menghapus produk.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   }
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (isSaving) return;
 
     const name = form.name.trim();
     if (!name) {
@@ -520,19 +558,41 @@ export default function AdminProdukPage() {
     };
 
     if (isEditMode && editingId) {
-      updateProduct(editingId, payload);
-      setStatusMessage(
-        `Produk diperbarui. Kode/Serial: ${serialNumber ?? "(kosong)"}`,
-      );
-      closeFormModal();
+      void (async () => {
+        setIsSaving(true);
+        try {
+          await updateProduct(editingId, payload);
+          setStatusMessage(
+            `Produk diperbarui. Kode/Serial: ${serialNumber ?? "(kosong)"}`,
+          );
+          closeFormModal();
+        } catch (error) {
+          window.alert(
+            error instanceof Error ? error.message : "Gagal memperbarui produk.",
+          );
+        } finally {
+          setIsSaving(false);
+        }
+      })();
       return;
     }
 
-    addProduct(payload);
-    setStatusMessage(
-      `Produk baru ditambah. Kode/Serial: ${serialNumber ?? "(kosong)"}`,
-    );
-    closeFormModal();
+    void (async () => {
+      setIsSaving(true);
+      try {
+        await addProduct(payload);
+        setStatusMessage(
+          `Produk baru ditambah. Kode/Serial: ${serialNumber ?? "(kosong)"}`,
+        );
+        closeFormModal();
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "Gagal menyimpan produk.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   }
 
   function handleExportCSV() {
@@ -568,12 +628,23 @@ export default function AdminProdukPage() {
         return;
       }
 
-      importProducts(items);
-      setStatusMessage(
-        `Berhasil mengimpor ${items.length.toLocaleString("id-ID")} produk!${
-          skipped > 0 ? ` (${skipped} baris dilewati)` : ""
-        }`,
-      );
+      void (async () => {
+        setIsSaving(true);
+        try {
+          await importProducts(items);
+          setStatusMessage(
+            `Berhasil mengimpor ${items.length.toLocaleString("id-ID")} produk!${
+              skipped > 0 ? ` (${skipped} baris dilewati)` : ""
+            }`,
+          );
+        } catch (error) {
+          window.alert(
+            error instanceof Error ? error.message : "Gagal mengimpor produk.",
+          );
+        } finally {
+          setIsSaving(false);
+        }
+      })();
 
       if (errors.length > 0) {
         console.warn("Import CSV warnings:", errors);
@@ -651,6 +722,26 @@ export default function AdminProdukPage() {
           />
         </div>
       </header>
+
+      {productsError && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <p>{productsError}</p>
+          <button
+            type="button"
+            onClick={() => void refreshProducts()}
+            className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      )}
+
+      {productsLoading && (
+        <div className="mb-6 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
+          Memuat data produk dari Supabase…
+        </div>
+      )}
 
       {statusMessage && (
         <div
@@ -1224,9 +1315,14 @@ export default function AdminProdukPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                  disabled={isSaving}
+                  className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {isEditMode ? "Simpan Perubahan" : "Simpan Produk"}
+                  {isSaving
+                    ? "Menyimpan…"
+                    : isEditMode
+                      ? "Simpan Perubahan"
+                      : "Simpan Produk"}
                 </button>
               </div>
             </form>

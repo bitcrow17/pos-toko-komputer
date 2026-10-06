@@ -1,7 +1,12 @@
 "use client";
 
 import { AppProvider } from "@/src/context/AppContext";
+import { ToastProvider } from "@/src/components/ui/Toast";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <AppProvider>{children}</AppProvider>;
+  return (
+    <ToastProvider>
+      <AppProvider>{children}</AppProvider>
+    </ToastProvider>
+  );
 }

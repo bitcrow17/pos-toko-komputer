@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   getTransactionItemCount,
   getTransactionType,
+  PAYMENT_METHOD_LABEL,
   summarizeCashByType,
 } from "@/lib/transaction";
 import {
@@ -165,7 +166,13 @@ function formatTimestamp(iso: string): string {
 }
 
 export default function AdminTransaksiPage() {
-  const { transactions, debts } = useApp();
+  const {
+    transactions,
+    transactionsLoading,
+    transactionsError,
+    refreshTransactions,
+    debts,
+  } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("hari-ini");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
@@ -234,6 +241,26 @@ export default function AdminTransaksiPage() {
           title="Laporan & Riwayat Transaksi"
           subtitle="Pemisahan kas Retail vs Servis agar cocok dengan uang fisik di laci."
         />
+
+        {transactionsError && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p>{transactionsError}</p>
+            <button
+              type="button"
+              onClick={() => void refreshTransactions()}
+              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
+
+        {transactionsLoading && (
+          <div className="mb-6 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
+            Memuat data...
+          </div>
+        )}
 
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <label className="block text-sm font-medium text-slate-600">
@@ -370,16 +397,26 @@ export default function AdminTransaksiPage() {
                 <th className="px-4 py-3">Nomor Nota</th>
                 <th className="px-4 py-3">Kategori</th>
                 <th className="px-4 py-3">Tanggal / Waktu</th>
+                <th className="px-4 py-3">Metode</th>
                 <th className="px-4 py-3 text-center">Item</th>
                 <th className="px-4 py-3 text-right">Total</th>
                 <th className="px-4 py-3 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className={TABLE_BODY_CLASS}>
-                {filteredTransactions.length === 0 ? (
+                {transactionsLoading ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
+                      className="px-4 py-12 text-center text-slate-500"
+                    >
+                      Memuat data...
+                    </td>
+                  </tr>
+                ) : filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
                       className="px-4 py-12 text-center text-slate-500"
                     >
                       {transactions.length === 0
@@ -414,6 +451,9 @@ export default function AdminTransaksiPage() {
                         </td>
                         <td className="px-4 py-3 text-slate-700">
                           {formatTimestamp(tx.timestamp)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {PAYMENT_METHOD_LABEL[tx.paymentMethod ?? "CASH"]}
                         </td>
                         <td className="px-4 py-3 text-center tabular-nums text-slate-700">
                           {getTransactionItemCount(tx)}

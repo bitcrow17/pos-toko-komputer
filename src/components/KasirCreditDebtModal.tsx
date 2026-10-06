@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { INPUT_CLASS, MODAL_OVERLAY, MODAL_PANEL } from "@/lib/ui-classes";
+import CustomerAutocomplete from "@/src/components/CustomerAutocomplete";
+import type { Customer } from "@/types/customer";
 
 export interface CreditDebtFormValues {
   customerName: string;
@@ -16,6 +18,7 @@ interface KasirCreditDebtModalProps {
   initialValues: CreditDebtFormValues;
   onClose: () => void;
   onConfirm: (values: CreditDebtFormValues) => void;
+  onCustomerSelect?: (customer: Customer) => void;
 }
 
 export default function KasirCreditDebtModal({
@@ -23,6 +26,7 @@ export default function KasirCreditDebtModal({
   initialValues,
   onClose,
   onConfirm,
+  onCustomerSelect,
 }: KasirCreditDebtModalProps) {
   const [form, setForm] = useState<CreditDebtFormValues>(initialValues);
   const [error, setError] = useState<string | null>(null);
@@ -87,34 +91,19 @@ export default function KasirCreditDebtModal({
         </p>
 
         <div className="mt-4 space-y-3">
-          <label className="block text-xs font-medium text-slate-600">
-            Nama Pelanggan *
-            <input
-              type="text"
-              className={`${INPUT_CLASS} mt-1`}
-              value={form.customerName}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, customerName: e.target.value }))
-              }
-              placeholder="Nama lengkap pelanggan"
-              required
-              autoFocus
-            />
-          </label>
-
-          <label className="block text-xs font-medium text-slate-600">
-            No. HP *
-            <input
-              type="tel"
-              className={`${INPUT_CLASS} mt-1`}
-              value={form.customerPhone}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, customerPhone: e.target.value }))
-              }
-              placeholder="08xxxxxxxxxx"
-              required
-            />
-          </label>
+          <CustomerAutocomplete
+            name={form.customerName}
+            phone={form.customerPhone}
+            onNameChange={(customerName) =>
+              setForm((f) => ({ ...f, customerName }))
+            }
+            onPhoneChange={(customerPhone) =>
+              setForm((f) => ({ ...f, customerPhone }))
+            }
+            onCustomerSelect={onCustomerSelect}
+            nameRequired
+            phoneRequired
+          />
 
           <label className="block text-xs font-medium text-slate-600">
             Jatuh Tempo *

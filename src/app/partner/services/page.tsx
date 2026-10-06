@@ -47,7 +47,11 @@ function PartnerServicesContent() {
   const searchParams = useSearchParams();
   const {
     partners,
+    partnersLoading,
     services,
+    servicesLoading,
+    servicesError,
+    refreshServices,
     confirmPartnerReceived,
     updateServicePartnerFee,
     markServiceRepaired,
@@ -101,13 +105,13 @@ function PartnerServicesContent() {
     }
   }
 
-  function handleConfirmReceived(ticket: ServiceTicket) {
+  async function handleConfirmReceived(ticket: ServiceTicket) {
     const ok = window.confirm(
       `Konfirmasi unit ${ticket.ticketNo} sudah diterima di toko mitra?`,
     );
     if (!ok) return;
     try {
-      confirmPartnerReceived(ticket.id);
+      await confirmPartnerReceived(ticket.id);
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Gagal konfirmasi penerimaan.",
@@ -122,16 +126,16 @@ function PartnerServicesContent() {
     setMarkRepaired(ticket.partnerStatus === "REPAIRED");
   }
 
-  function handleSaveFee() {
+  async function handleSaveFee() {
     if (!feeModalTicket) return;
     try {
-      updateServicePartnerFee(
+      await updateServicePartnerFee(
         feeModalTicket.id,
         parseRupiahInput(partnerFeeInput),
         "PROCESSING",
       );
       if (markRepaired) {
-        markServiceRepaired(feeModalTicket.id);
+        await markServiceRepaired(feeModalTicket.id);
       }
       setFeeModalTicket(null);
     } catch (error) {
@@ -141,13 +145,13 @@ function PartnerServicesContent() {
     }
   }
 
-  function handleSendReturn(ticket: ServiceTicket) {
+  async function handleSendReturn(ticket: ServiceTicket) {
     const ok = window.confirm(
       `Kirim balik unit ${ticket.ticketNo} ke toko utama?`,
     );
     if (!ok) return;
     try {
-      sendServiceReturnToStore(ticket.id);
+      await sendServiceReturnToStore(ticket.id);
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Gagal mengirim balik unit.",
@@ -189,6 +193,26 @@ function PartnerServicesContent() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
+        {servicesError && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p>{servicesError}</p>
+            <button
+              type="button"
+              onClick={() => void refreshServices()}
+              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
+
+        {(partnersLoading || servicesLoading) && (
+          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
+            Memuat data...
+          </div>
+        )}
+
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Area terisolasi: data servis internal, transaksi penjualan, dan
           informasi keuangan toko utama tidak ditampilkan di portal ini.
@@ -228,7 +252,16 @@ function PartnerServicesContent() {
               </tr>
             </thead>
             <tbody className={TABLE_BODY_CLASS}>
-              {partnerTickets.length === 0 ? (
+              {servicesLoading ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-slate-500"
+                  >
+                    Memuat data...
+                  </td>
+                </tr>
+              ) : partnerTickets.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}

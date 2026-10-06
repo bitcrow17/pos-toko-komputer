@@ -36,6 +36,9 @@ const TYPE_BADGE: Record<CustomerType, string> = {
 export default function AdminCustomersPage() {
   const {
     customers,
+    customersLoading,
+    customersError,
+    refreshCustomers,
     debts,
     addCustomer,
     updateCustomer,
@@ -85,15 +88,15 @@ export default function AdminCustomersPage() {
     setModalOpen(true);
   }
 
-  function handleSave(input: CustomerInput) {
+  async function handleSave(input: CustomerInput) {
     if (editingCustomer) {
-      updateCustomer(editingCustomer.id, input);
+      await updateCustomer(editingCustomer.id, input);
     } else {
-      addCustomer(input);
+      await addCustomer(input);
     }
   }
 
-  function handleDelete(customer: Customer) {
+  async function handleDelete(customer: Customer) {
     const outstanding = outstandingByCustomer.get(customer.id) ?? 0;
     if (outstanding > 0) {
       window.alert(
@@ -108,7 +111,7 @@ export default function AdminCustomersPage() {
     if (!ok) return;
 
     try {
-      deleteCustomer(customer.id);
+      await deleteCustomer(customer.id);
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Gagal menghapus pelanggan.",
@@ -128,6 +131,19 @@ export default function AdminCustomersPage() {
             </button>
           }
         />
+
+        {customersError && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <span>{customersError}</span>
+            <button
+              type="button"
+              onClick={() => void refreshCustomers()}
+              className={BTN_SECONDARY}
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
 
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <label className="block max-w-md flex-1 text-sm font-medium text-slate-600">
@@ -175,7 +191,16 @@ export default function AdminCustomersPage() {
               </tr>
             </thead>
             <tbody className={TABLE_BODY_CLASS}>
-              {filteredCustomers.length === 0 ? (
+              {customersLoading ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-10 text-center text-slate-500"
+                  >
+                    Memuat data pelanggan…
+                  </td>
+                </tr>
+              ) : filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
                     {customers.length === 0

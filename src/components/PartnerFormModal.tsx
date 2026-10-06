@@ -10,7 +10,7 @@ interface PartnerFormModalProps {
   open: boolean;
   partner: Partner | null;
   onClose: () => void;
-  onSave: (input: PartnerInput) => void;
+  onSave: (input: PartnerInput) => void | Promise<void>;
 }
 
 export default function PartnerFormModal({
@@ -23,6 +23,7 @@ export default function PartnerFormModal({
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -30,19 +31,24 @@ export default function PartnerFormModal({
     setPhone(partner?.phone ?? "");
     setAddress(partner?.address ?? "");
     setError(null);
+    setIsSaving(false);
   }, [open, partner]);
 
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isSaving) return;
     setError(null);
+    setIsSaving(true);
 
     try {
-      onSave({ name, phone, address });
+      await onSave({ name, phone, address });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan mitra.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -119,9 +125,10 @@ export default function PartnerFormModal({
           </button>
           <button
             type="submit"
-            className="flex-1 rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500"
+            disabled={isSaving}
+            className="flex-1 rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
           >
-            Simpan
+            {isSaving ? "Menyimpan…" : "Simpan"}
           </button>
         </div>
       </form>

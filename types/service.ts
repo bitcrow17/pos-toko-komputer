@@ -3,6 +3,7 @@ export interface Partner {
   name: string;
   phone: string;
   address: string;
+  createdAt?: string;
 }
 
 export type PartnerInput = Omit<Partner, "id">;

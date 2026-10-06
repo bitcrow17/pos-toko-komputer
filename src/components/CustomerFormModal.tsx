@@ -51,7 +51,7 @@ interface CustomerFormModalProps {
   initialCustomer?: Customer | null;
   submitLabel?: string;
   onClose: () => void;
-  onSubmit: (input: CustomerInput) => void;
+  onSubmit: (input: CustomerInput) => void | Promise<void>;
 }
 
 export default function CustomerFormModal({
@@ -64,22 +64,28 @@ export default function CustomerFormModal({
 }: CustomerFormModalProps) {
   const [form, setForm] = useState<CustomerFormValues>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setForm(initialCustomer ? customerToForm(initialCustomer) : EMPTY_FORM);
     setError(null);
+    setIsSubmitting(false);
   }, [open, initialCustomer]);
 
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
     try {
-      onSubmit(formToCustomerInput(form));
+      await onSubmit(formToCustomerInput(form));
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan pelanggan.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -206,9 +212,10 @@ export default function CustomerFormModal({
           </button>
           <button
             type="submit"
-            className="rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500"
+            disabled={isSubmitting}
+            className="rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitLabel}
+            {isSubmitting ? "Menyimpan…" : submitLabel}
           </button>
         </div>
       </form>

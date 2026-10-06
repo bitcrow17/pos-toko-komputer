@@ -1,4 +1,3 @@
-import { mockProducts } from "@/src/data/mockData";
 import type { Product } from "@/types/product";
 
 /** Produk katalog kasir dengan kode & barcode untuk pencarian */
@@ -44,8 +43,6 @@ export function findProductByExactBarcode(
   if (!code) return undefined;
   return catalog.find((product) => product.barcode === code);
 }
-
-export const catalogProducts: CatalogProduct[] = buildCatalog(mockProducts);
 
 export function findProductById(
   catalog: CatalogProduct[],

@@ -12,16 +12,21 @@ import {
   parseCashInput,
   type DiscountType,
 } from "@/lib/kasir-calculations";
-import { generateInvoiceNumber } from "@/lib/transaction";
+import { buildDebtFromInput } from "@/lib/debt";
+import { normalizePhone } from "@/lib/customer";
 import { useApp } from "@/src/context/AppContext";
 import type { TransactionItem } from "@/types/transaction";
 import {
   buildCatalog,
-  filterCatalog,
-  findProductByExactBarcode,
   getAvailableStock,
   type CatalogProduct,
 } from "@/lib/kasir-catalog";
+import {
+  findProductByBarcode as findProductByBarcodeInDb,
+  generateInvoiceNumberFromDb,
+  saveRetailTransaction,
+  searchProducts as searchProductsInDb,
+} from "@/lib/supabase-db";
 import type { CartItem } from "@/types/cart";
 import { getCartItemSubtotal } from "@/types/cart";
 import type { Customer } from "@/types/customer";
@@ -37,10 +42,12 @@ import DebtPaymentReceiptModal from "@/src/components/DebtPaymentReceiptModal";
 import KasirDebtPaymentPanel from "@/src/components/KasirDebtPaymentPanel";
 import KasirServicePanel from "@/src/components/KasirServicePanel";
 import CustomerFormModal from "@/src/components/CustomerFormModal";
+import CustomerSearchPicker from "@/src/components/CustomerSearchPicker";
 import KasirCreditDebtModal, {
   type CreditDebtFormValues,
 } from "@/src/components/KasirCreditDebtModal";
 import SearchInput from "@/src/components/ui/SearchInput";
+import { useToast } from "@/src/components/ui/Toast";
 import ModeBadge from "@/src/components/ui/ModeBadge";
 import {
   INPUT_CLASS,
@@ -84,15 +91,19 @@ function createHoldId(): string {
 export default function KasirPage() {
   const {
     products: globalProducts,
+    productsLoading,
+    refreshProducts,
     transactions,
     debts,
     customers,
     reduceStock,
     addTransaction,
-    addDebt,
+    registerDebt,
     payDebt,
     addCustomer,
+    upsertCustomerFromContact,
   } = useApp();
+  const { showToast } = useToast();
 
   const catalogProducts = useMemo(
     () => buildCatalog(globalProducts),
@@ -113,14 +124,6 @@ export default function KasirPage() {
   const selectedCustomer = useMemo(
     () => customers.find((c) => c.id === selectedCustomerId) ?? null,
     [customers, selectedCustomerId],
-  );
-
-  const sortedCustomers = useMemo(
-    () =>
-      [...customers].sort((a, b) =>
-        a.name.localeCompare(b.name, "id", { sensitivity: "base" }),
-      ),
-    [customers],
   );
 
   const [isTaxEnabled, setIsTaxEnabled] = useState(false);
@@ -147,12 +150,53 @@ export default function KasirPage() {
   const [completedTransaction, setCompletedTransaction] =
     useState<Transaction | null>(null);
   const [completedDebt, setCompletedDebt] = useState<Debt | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<CatalogProduct[]>([]);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredProducts = useMemo(
-    () => filterCatalog(catalogProducts, searchQuery),
-    [catalogProducts, searchQuery],
-  );
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return catalogProducts;
+    return searchResults;
+  }, [catalogProducts, searchQuery, searchResults]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    setIsSearching(true);
+    searchDebounceRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const results = await searchProductsInDb(q);
+          setSearchResults(buildCatalog(results));
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Gagal mencari produk.";
+          showToast(message, "error");
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      })();
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, showToast]);
 
   const totals = useMemo(
     () =>
@@ -290,23 +334,51 @@ export default function KasirPage() {
 
     const scanned = searchQuery.trim();
     if (scanned) {
-      const exactBarcodeMatch = findProductByExactBarcode(
-        catalogProducts,
-        scanned,
-      );
-      if (exactBarcodeMatch) {
-        const result = addToCartLogic(cartItems, exactBarcodeMatch);
-        if (result.alert) {
-          showAlert(result.alert.message);
+      void (async () => {
+        try {
+          const barcodeMatch = await findProductByBarcodeInDb(scanned);
+          if (barcodeMatch) {
+            const catalogMatch = buildCatalog([barcodeMatch])[0];
+            const result = addToCartLogic(cartItems, catalogMatch);
+            if (result.alert) {
+              showAlert(result.alert.message);
+              return;
+            }
+            setCartItems(result.items);
+            setAlertMessage(null);
+            setSearchQuery("");
+            closeSearchDropdown();
+            window.setTimeout(() => searchInputRef.current?.focus(), 0);
+            return;
+          }
+
+          const localBarcodeMatch = catalogProducts.find(
+            (p) => p.barcode === scanned,
+          );
+          if (localBarcodeMatch) {
+            const result = addToCartLogic(cartItems, localBarcodeMatch);
+            if (result.alert) {
+              showAlert(result.alert.message);
+              return;
+            }
+            setCartItems(result.items);
+            setAlertMessage(null);
+            setSearchQuery("");
+            closeSearchDropdown();
+            window.setTimeout(() => searchInputRef.current?.focus(), 0);
+            return;
+          }
+        } catch (error) {
+          showToast(
+            error instanceof Error ? error.message : "Gagal scan barcode.",
+            "error",
+          );
           return;
         }
-        setCartItems(result.items);
-        setAlertMessage(null);
-        setSearchQuery("");
-        closeSearchDropdown();
-        window.setTimeout(() => searchInputRef.current?.focus(), 0);
-        return;
-      }
+
+        addTopFilteredProductToCart();
+      })();
+      return;
     }
 
     addTopFilteredProductToCart();
@@ -379,10 +451,8 @@ export default function KasirPage() {
     setCreditCustomerPhone(customer.phone);
   }
 
-  function selectCustomerById(customerId: string) {
-    setSelectedCustomerId(customerId);
-    const customer =
-      customers.find((c) => c.id === customerId) ?? null;
+  function selectCustomer(customer: Customer | null) {
+    setSelectedCustomerId(customer?.id ?? "");
     if (paymentMethod === "CREDIT") {
       syncCreditCustomerFromSelection(customer);
     }
@@ -434,6 +504,7 @@ export default function KasirPage() {
   }
 
   function completePayment() {
+    if (isSaving) return;
     if (cartItems.length === 0) {
       showAlert("Keranjang kosong.");
       return;
@@ -446,7 +517,7 @@ export default function KasirPage() {
         );
         return;
       }
-      finalizeTransaction({
+      void finalizeTransaction({
         paymentMethod: "CASH",
         nominalBayar: cashPaid,
         kembalian: changeAmount,
@@ -458,7 +529,7 @@ export default function KasirPage() {
     }
 
     if (paymentMethod === "QRIS" || paymentMethod === "TRANSFER") {
-      finalizeTransaction({
+      void finalizeTransaction({
         paymentMethod,
         nominalBayar: totals.grandTotal,
         kembalian: 0,
@@ -484,21 +555,18 @@ export default function KasirPage() {
       return;
     }
 
-    const customerId =
-      selectedCustomer?.id ?? `CUS-CR-${Date.now()}`;
-
-    finalizeTransaction({
+    void finalizeTransaction({
       paymentMethod: "CREDIT",
       nominalBayar: downPayment,
       kembalian: 0,
-      customerId,
+      customerId: selectedCustomer?.id,
       customerName: name,
       customerPhone: phone,
       dueDate: dueDateInput,
     });
   }
 
-  function finalizeTransaction(options: {
+  async function finalizeTransaction(options: {
     paymentMethod: PaymentMethod;
     nominalBayar: number;
     kembalian: number;
@@ -507,6 +575,8 @@ export default function KasirPage() {
     customerPhone?: string;
     dueDate?: string;
   }) {
+    if (isSaving) return;
+
     const items: TransactionItem[] = cartItems.map((item) => ({
       productId: item.productId,
       productName: item.productName,
@@ -514,78 +584,127 @@ export default function KasirPage() {
       unitPrice: item.unitSellingPrice,
     }));
 
-    const invoiceId = generateInvoiceNumber(transactions);
     const now = new Date().toISOString();
-
     let linkedDebt: Debt | null = null;
 
     if (options.paymentMethod === "CREDIT") {
-      const customerId = options.customerId?.trim();
       const customerName = options.customerName?.trim();
       const customerPhone = options.customerPhone?.trim();
       const dueDate = options.dueDate?.trim();
 
-      if (!customerId || !customerName || !customerPhone || !dueDate) {
+      if (!customerName || !customerPhone || !dueDate) {
         showAlert(
           "Data pelanggan dan tanggal jatuh tempo wajib diisi untuk transaksi tempo.",
         );
         return;
       }
-
-      try {
-        linkedDebt = addDebt({
-          transactionId: invoiceId,
-          customerId,
-          customerName,
-          customerPhone,
-          totalAmount: totals.grandTotal,
-          paidAmount: options.nominalBayar,
-          dueDate,
-          createdAt: now,
-        });
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Gagal membuat data utang. Transaksi dibatalkan.";
-        showAlert(message);
-        return;
-      }
     }
 
-    const newTransaction: Transaction = {
-      id: invoiceId,
-      timestamp: now,
-      type: "RETAIL",
-      items,
-      totalHarga: totals.grandTotal,
-      nominalBayar: options.nominalBayar,
-      kembalian: options.kembalian,
-      paymentMethod: options.paymentMethod,
-      customerId: options.customerId?.trim(),
-      customerName: options.customerName?.trim(),
-      customerPhone: options.customerPhone?.trim(),
-      debtId: linkedDebt?.id,
-    };
+    setIsSaving(true);
 
-    addTransaction(newTransaction);
+    try {
+      let customerId = options.customerId?.trim() || undefined;
+      let customerName = options.customerName?.trim() || undefined;
+      let customerPhone = options.customerPhone?.trim() || undefined;
 
-    cartItems.forEach((item) =>
-      reduceStock(item.productId, item.quantity),
-    );
+      if (customerName && customerPhone) {
+        const known =
+          customers.find((c) => c.id === customerId) ?? selectedCustomer;
+        // Hanya wariskan alamat jika nomor HP masih cocok dengan pelanggan terpilih
+        const addressToKeep =
+          known &&
+          normalizePhone(known.phone) === normalizePhone(customerPhone)
+            ? known.address
+            : undefined;
+        const saved = await upsertCustomerFromContact(
+          customerName,
+          customerPhone,
+          { address: addressToKeep },
+        );
+        customerId = saved.id;
+        customerName = saved.name;
+        customerPhone = saved.phone;
+        setSelectedCustomerId(saved.id);
+      }
 
-    setCompletedTransaction(newTransaction);
-    setCompletedDebt(linkedDebt);
-    setAlertMessage(null);
-    clearCart();
-    setIsTaxEnabled(false);
-    setDiscountType("NOMINAL");
-    setDiscountValue(0);
-    setPaymentMethod("CASH");
-    setCreditCustomerName("");
-    setCreditCustomerPhone("");
-    setCreditNote("");
-    setDownPaymentInput("0");
+      const invoiceId = await generateInvoiceNumberFromDb();
+
+      if (options.paymentMethod === "CREDIT") {
+        linkedDebt = buildDebtFromInput(debts, {
+          transactionId: invoiceId,
+          customerId: customerId as string,
+          customerName: customerName as string,
+          customerPhone: customerPhone as string,
+          totalAmount: totals.grandTotal,
+          paidAmount: options.nominalBayar,
+          dueDate: options.dueDate as string,
+          createdAt: now,
+        });
+      }
+
+      const newTransaction: Transaction = {
+        id: invoiceId,
+        timestamp: now,
+        type: "RETAIL",
+        items,
+        totalHarga: totals.grandTotal,
+        nominalBayar: options.nominalBayar,
+        kembalian: options.kembalian,
+        paymentMethod: options.paymentMethod,
+        customerId,
+        customerName,
+        customerPhone,
+        debtId: linkedDebt?.id,
+      };
+
+      await saveRetailTransaction({
+        transaction: newTransaction,
+        items,
+        stockUpdates: cartItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+        debt: linkedDebt,
+      });
+
+      addTransaction(newTransaction);
+      if (linkedDebt) {
+        registerDebt(linkedDebt);
+      }
+      cartItems.forEach((item) =>
+        reduceStock(item.productId, item.quantity),
+      );
+      await refreshProducts();
+
+      setCompletedTransaction(newTransaction);
+      setCompletedDebt(linkedDebt);
+      setAlertMessage(null);
+      clearCart();
+      setIsTaxEnabled(false);
+      setDiscountType("NOMINAL");
+      setDiscountValue(0);
+      setPaymentMethod("CASH");
+      setCreditCustomerName("");
+      setCreditCustomerPhone("");
+      setCreditNote("");
+      setDownPaymentInput("0");
+
+      showToast(
+        options.paymentMethod === "CREDIT"
+          ? `Utang berhasil disimpan — ${invoiceId}`
+          : `Transaksi berhasil disimpan — ${invoiceId}`,
+        "success",
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Gagal menyimpan transaksi ke database.";
+      showToast(message, "error");
+      showAlert(message);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function generateDebtPaymentReceiptId(): string {
@@ -785,21 +904,13 @@ export default function KasirPage() {
           <div className="flex flex-wrap items-center gap-2">
             {kasirMode === "sale" && (
               <>
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <label className="flex min-w-[16rem] items-center gap-2 text-xs font-medium text-slate-600">
                   Pelanggan
-                  <select
-                    className={SELECT_CLASS}
-                    value={selectedCustomerId}
-                    onChange={(e) => selectCustomerById(e.target.value)}
-                  >
-                    <option value="">Pelanggan Umum</option>
-                    {sortedCustomers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                        {c.type === "CORPORATE" ? " (Instansi)" : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <CustomerSearchPicker
+                    selectedCustomerId={selectedCustomerId}
+                    onSelect={selectCustomer}
+                    className={`${SELECT_CLASS} min-w-[14rem] flex-1`}
+                  />
                 </label>
                 <button
                   type="button"
@@ -868,10 +979,18 @@ export default function KasirPage() {
                 >
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
                     <p className="text-xs text-slate-500">
-                      <span className="font-semibold text-slate-700">
-                        {filteredProducts.length} hasil
-                      </span>
-                      {" · "}Enter untuk tambah
+                      {isSearching ? (
+                        <span className="font-semibold text-indigo-600">
+                          Mencari…
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-slate-700">
+                            {filteredProducts.length} hasil
+                          </span>
+                          {" · "}Enter untuk tambah
+                        </>
+                      )}
                     </p>
                     <button
                       type="button"
@@ -892,7 +1011,16 @@ export default function KasirPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredProducts.length === 0 ? (
+                        {isSearching ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="px-3 py-6 text-center text-indigo-600"
+                            >
+                              Mencari produk…
+                            </td>
+                          </tr>
+                        ) : filteredProducts.length === 0 ? (
                           <tr>
                             <td
                               colSpan={4}
@@ -1276,12 +1404,19 @@ export default function KasirPage() {
                 <button
                   type="button"
                   onClick={completePayment}
-                  disabled={!canCompletePayment}
-                  className="w-full rounded-xl bg-indigo-600 py-3.5 text-sm font-bold text-white shadow-lg transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                  disabled={!canCompletePayment || isSaving || productsLoading}
+                  className="relative w-full rounded-xl bg-indigo-600 py-3.5 text-sm font-bold text-white shadow-lg transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                 >
-                  {isCreditActive
-                    ? "Simpan Utang & Cetak Struk"
-                    : "Selesaikan & Cetak Struk"}
+                  {isSaving ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Menyimpan…
+                    </span>
+                  ) : isCreditActive ? (
+                    "Simpan Utang & Cetak Struk"
+                  ) : (
+                    "Selesaikan & Cetak Struk"
+                  )}
                 </button>
                 <button
                   type="button"
@@ -1322,9 +1457,9 @@ export default function KasirPage() {
         title="Tambah Pelanggan Cepat"
         submitLabel="Simpan & Pilih"
         onClose={() => setIsQuickCustomerModalOpen(false)}
-        onSubmit={(input) => {
-          const created = addCustomer(input);
-          setSelectedCustomerId(created.id);
+        onSubmit={async (input) => {
+          const created = await addCustomer(input);
+          selectCustomer(created);
           if (paymentMethod === "CREDIT") {
             syncCreditCustomerFromSelection(created);
           }
@@ -1336,6 +1471,7 @@ export default function KasirPage() {
         initialValues={creditDebtInitialValues}
         onClose={() => setIsCreditDebtModalOpen(false)}
         onConfirm={handleCreditDebtConfirm}
+        onCustomerSelect={selectCustomer}
       />
     </>
   );

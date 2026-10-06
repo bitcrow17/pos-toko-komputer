@@ -8,19 +8,17 @@ import type {
   ServiceTicketInput,
 } from "@/types/service";
 
-export function generatePartnerId(existing: Partner[]): string {
-  const count = existing.length + 1;
-  return `PTR-${String(count).padStart(3, "0")}`;
+export function generatePartnerId(): string {
+  return `PTR-${Date.now()}`;
 }
 
-export function generateServiceId(existing: ServiceTicket[]): string {
-  const count = existing.length + 1;
-  return `SRV-${String(count).padStart(4, "0")}`;
+export function generateServiceId(): string {
+  return `SRV-${Date.now()}`;
 }
 
-export function generateTicketNo(existing: ServiceTicket[]): string {
+export function generateTicketNo(sequence: number): string {
   const year = new Date().getFullYear();
-  const seq = existing.length + 1;
+  const seq = Math.max(1, sequence);
   return `SVC-${year}-${String(seq).padStart(4, "0")}`;
 }
 
@@ -92,23 +90,25 @@ export function validateServiceInput(input: ServiceTicketInput): string | null {
 }
 
 export function buildPartnerFromInput(
-  existing: Partner[],
+  _existing: Partner[],
   input: PartnerInput,
 ): Partner {
   const error = validatePartnerInput(input);
   if (error) throw new Error(error);
 
   return {
-    id: generatePartnerId(existing),
+    id: generatePartnerId(),
     name: input.name.trim(),
     phone: input.phone.trim(),
     address: input.address.trim(),
+    createdAt: new Date().toISOString(),
   };
 }
 
 export function buildServiceFromInput(
   existing: ServiceTicket[],
   input: ServiceTicketInput,
+  options?: { ticketNo?: string },
 ): ServiceTicket {
   const error = validateServiceInput(input);
   if (error) throw new Error(error);
@@ -122,8 +122,8 @@ export function buildServiceFromInput(
   const estimatedCompletionDate = input.estimatedCompletionDate?.trim() || undefined;
 
   return {
-    id: generateServiceId(existing),
-    ticketNo: generateTicketNo(existing),
+    id: generateServiceId(),
+    ticketNo: options?.ticketNo ?? generateTicketNo(existing.length + 1),
     customerName: input.customerName.trim(),
     customerPhone: input.customerPhone.trim(),
     deviceName: input.deviceName.trim(),

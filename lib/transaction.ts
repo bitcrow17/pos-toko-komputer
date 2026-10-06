@@ -1,4 +1,4 @@
-import type { Transaction, TransactionType } from "@/types/transaction";
+import type { PaymentMethod, Transaction, TransactionType } from "@/types/transaction";
 
 /** Generate nomor nota berurutan per hari: INV-YYYYMMDD-001 */
 export function generateInvoiceNumber(existing: Transaction[]): string {
@@ -23,6 +23,13 @@ export function generateServicePaymentInvoiceNumber(
   const count = existing.filter((t) => t.id.startsWith(prefix)).length;
   return `${prefix}-${String(count + 1).padStart(3, "0")}`;
 }
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  CASH: "Tunai",
+  QRIS: "QRIS",
+  TRANSFER: "Transfer",
+  CREDIT: "Utang",
+};
 
 export function getTransactionType(tx: Transaction): TransactionType {
   return tx.type ?? "RETAIL";
