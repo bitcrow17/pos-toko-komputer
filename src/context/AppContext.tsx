@@ -1,5 +1,6 @@
 "use client";
 
+import { supabase } from "@/lib/supabase";
 import {
   createContext,
   useCallback,
@@ -28,6 +29,7 @@ import {
   insertPartner as insertPartnerToDb,
   insertProduct as insertProductToDb,
   insertServiceTicket,
+  getNextServiceTicketNo,
   saveRetailTransaction,
   updateCustomerInDb,
   updatePartnerInDb,
@@ -681,17 +683,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         serviceData.customerPhone,
       );
 
-      const sequence = (await countServicesInDb()) + 1;
+      // Ambil nomor tiket baru secara dinamis dari database
+      const ticketNo = await getNextServiceTicketNo();
+
       const built = buildServiceFromInput(servicesRef.current, serviceData, {
-        ticketNo: `SVC-${new Date().getFullYear()}-${String(sequence).padStart(4, "0")}`,
+        ticketNo,
       });
+
       const created = await insertServiceTicket(built);
       await refreshServices();
       return created;
     },
     [refreshServices, upsertCustomerFromContact],
   );
-
   const updateService = useCallback(
     async (id: string, updates: Partial<ServiceTicket>) => {
       await applyServiceChange(id, (ticket) => {
