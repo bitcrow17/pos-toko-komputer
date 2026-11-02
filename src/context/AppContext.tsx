@@ -1,6 +1,5 @@
 "use client";
 
-import { supabase } from "@/lib/supabase";
 import {
   createContext,
   useCallback,
@@ -14,7 +13,6 @@ import {
 import { createNextProductId } from "@/lib/admin-product";
 import {
   clearAllProductsFromDb,
-  countServicesInDb,
   deleteCustomerFromDb,
   deletePartnerFromDb,
   deleteProductFromDb,
@@ -877,6 +875,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw new Error("Biaya pelanggan tidak valid.");
       }
 
+      if (ticket.customerName && ticket.customerPhone) {
+        await upsertCustomerFromContact(
+          ticket.customerName,
+          ticket.customerPhone,
+        );
+      }
+
       if (
         options.paymentMethod === "CASH" &&
         customerFee > 0 &&
@@ -951,7 +956,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await refreshTransactions();
       return newTransaction;
     },
-    [applyServiceChange, refreshTransactions],
+    [applyServiceChange, refreshTransactions, upsertCustomerFromContact],
   );
 
   const value = useMemo(
