@@ -37,10 +37,55 @@ export function computeServiceNetProfit(
   return customerFee - partnerFee - (sparepartCost || 0);
 }
 
+export function parseServiceAccessories(raw: unknown): ServiceAccessory[] {
+  if (!raw) return [];
+
+  let items: unknown[] = [];
+
+  if (Array.isArray(raw)) {
+    items = raw;
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          items = parsed;
+        }
+      } catch {
+        items = trimmed
+          .slice(1, -1)
+          .split(",")
+          .map((s) => s.replace(/['"]/g, "").trim());
+      }
+    } else if (trimmed.includes(",")) {
+      items = trimmed.split(",").map((s) => s.trim());
+    } else {
+      items = [trimmed];
+    }
+  }
+
+  const validAccessories: ServiceAccessory[] = ["UNIT", "CHARGER", "BOX"];
+  const result: ServiceAccessory[] = [];
+
+  for (const item of items) {
+    if (typeof item === "string") {
+      const upper = item.toUpperCase().trim() as ServiceAccessory;
+      if (validAccessories.includes(upper) && !result.includes(upper)) {
+        result.push(upper);
+      }
+    }
+  }
+
+  return result;
+}
+
 export function normalizeServiceAccessories(
-  accessories?: ServiceAccessory[],
+  accessories?: unknown,
 ): ServiceAccessory[] {
-  const set = new Set<ServiceAccessory>(accessories ?? ["UNIT"]);
+  const parsed = parseServiceAccessories(accessories);
+  const set = new Set<ServiceAccessory>(parsed.length > 0 ? parsed : ["UNIT"]);
   set.add("UNIT");
   const order: ServiceAccessory[] = ["UNIT", "CHARGER", "BOX"];
   return order.filter((item) => set.has(item));
@@ -129,6 +174,7 @@ export function buildServiceFromInput(
     deviceName: input.deviceName.trim(),
     serialNumber: input.serialNumber?.trim() || undefined,
     problem: input.problem.trim(),
+    workNotes: input.workNotes?.trim() || undefined,
     handlingType: input.handlingType,
     partnerId: isPartner ? input.partnerId : undefined,
     partnerStatus: isPartner ? (input.partnerStatus ?? "PENDING_SEND") : undefined,
@@ -162,6 +208,15 @@ export function getServiceKasirStatus(
 ): ServiceKasirStatus {
   if (ticket.status === "CANCELLED") return "CANCELLED";
   if (ticket.isPaid) return "COLLECTED";
+
+  if (ticket.status === "COMPLAINT") {
+    const atPartner =
+      ticket.handlingType === "PARTNER" &&
+      ticket.partnerStatus &&
+      ticket.partnerStatus !== "PENDING_SEND" &&
+      ticket.partnerStatus !== "RETURNED_TO_STORE";
+    return atPartner ? "AT_PARTNER" : "READY_PICKUP";
+  }
 
   const readyForPickup =
     ticket.status === "COMPLETED" ||
@@ -208,9 +263,18 @@ export function getComplaintWarning(ticket: ServiceTicket): string | null {
   return `Unit ini adalah garansi ulang dari Tiket #${ref}. Pastikan tidak ada klaim ongkos ganda!`;
 }
 
+export const SERVICE_STATUS_ORDER: ServiceStatus[] = [
+  "QUEUED",
+  "PROCESSING",
+  "COMPLAINT",
+  "COMPLETED",
+  "CANCELLED",
+];
+
 export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
   QUEUED: "Antrian",
   PROCESSING: "Diproses",
+  COMPLAINT: "Komplain / Retur",
   COMPLETED: "Selesai",
   CANCELLED: "Batal",
 };
@@ -220,6 +284,8 @@ export const SERVICE_STATUS_BADGE: Record<ServiceStatus, string> = {
     "rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700",
   PROCESSING:
     "rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700",
+  COMPLAINT:
+    "rounded-lg border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700",
   COMPLETED:
     "rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
   CANCELLED:
@@ -233,6 +299,7 @@ export const PARTNER_STATUS_LABEL: Record<PartnerStatus, string> = {
   REPAIRED: "Selesai Diperbaiki",
   RETURN_IN_TRANSIT: "Pengembalian",
   RETURNED_TO_STORE: "Kembali ke Toko",
+  COMPLAINT_RETURN: "Retur Komplain dari Mitra",
 };
 
 export const PARTNER_STATUS_BADGE: Record<PartnerStatus, string> = {
@@ -248,7 +315,49 @@ export const PARTNER_STATUS_BADGE: Record<PartnerStatus, string> = {
     "rounded-lg border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700",
   RETURNED_TO_STORE:
     "rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700",
+  COMPLAINT_RETURN:
+    "rounded-lg border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700",
 };
+
+export function isActiveServiceStatus(status: ServiceStatus): boolean {
+  return status !== "COMPLETED" && status !== "CANCELLED";
+}
+
+export function applyServiceStatusSideEffects(
+  ticket: ServiceTicket,
+  status: ServiceStatus,
+): Pick<ServiceTicket, "isComplaint" | "partnerStatus" | "originalTicketNo"> {
+  if (status !== "COMPLAINT") {
+    return {
+      isComplaint: ticket.isComplaint,
+      partnerStatus: ticket.partnerStatus,
+      originalTicketNo: ticket.originalTicketNo,
+    };
+  }
+
+  return {
+    isComplaint: true,
+    originalTicketNo: ticket.originalTicketNo?.trim() || ticket.ticketNo,
+    partnerStatus:
+      ticket.handlingType === "PARTNER"
+        ? "COMPLAINT_RETURN"
+        : ticket.partnerStatus,
+  };
+}
+
+/** Status tiket tidak direset ke PROCESSING jika sedang komplain/batal. */
+export function preserveServiceWorkflowStatus(
+  current: ServiceStatus,
+  fallback: ServiceStatus,
+): ServiceStatus {
+  if (current === "COMPLAINT" || current === "CANCELLED") return current;
+  return fallback;
+}
+
+export function normalizeWorkNotes(value?: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
 
 export const HANDLING_TYPE_LABEL: Record<
   ServiceTicket["handlingType"],

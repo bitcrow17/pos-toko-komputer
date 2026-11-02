@@ -42,6 +42,8 @@ export default function ReceiptDocument({
   className = "",
 }: ReceiptDocumentProps) {
   const isThermal = layout === "thermal";
+  const isDigital = layout === "digital";
+  const isCompact = isThermal || isDigital;
   const isCredit = transaction.paymentMethod === "CREDIT";
   const remainingAmount =
     debt?.remainingAmount ??
@@ -56,80 +58,85 @@ export default function ReceiptDocument({
       aria-label="Struk belanja"
     >
       <header
-        className={`text-center ${isThermal ? "px-3 py-3" : "px-8 py-6"}`}
+        className={`text-center ${isCompact ? "px-3 py-3" : "px-8 py-6"}`}
       >
         <p
-          className={`font-bold uppercase tracking-widest text-slate-800 ${
-            isThermal ? "text-[11px]" : "text-sm"
+          className={`receipt-store-name font-extrabold uppercase tracking-widest text-slate-900 ${
+            isCompact ? "text-base" : "text-lg"
           }`}
         >
           {STORE_INFO.name}
         </p>
         <p
-          className={`mt-1 text-slate-600 ${isThermal ? "text-[10px] leading-tight" : "text-sm"}`}
+          className={`mt-1 text-slate-600 ${isCompact ? "text-[11px] leading-tight" : "text-sm"}`}
         >
           {STORE_INFO.address}
         </p>
         <p
-          className={`text-slate-500 ${isThermal ? "text-[10px]" : "text-xs"}`}
+          className={`text-slate-500 ${isCompact ? "text-[11px]" : "text-xs"}`}
         >
           Telp: {STORE_INFO.phoneNumber}
         </p>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2 border-t" : "my-4 border-t-2"}`}
         />
 
         <h2
-          className={`font-bold text-slate-900 ${isThermal ? "text-sm" : "text-xl"}`}
+          className={`font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-xl"}`}
         >
-          {isThermal ? "STRUK BELANJA" : "FAKTUR / NOTA PENJUALAN"}
+          {isCompact ? "STRUK BELANJA" : "FAKTUR / NOTA PENJUALAN"}
         </h2>
+        {isDigital && (
+          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            Nota Digital
+          </p>
+        )}
         <p
-          className={`mt-1 font-mono text-slate-700 ${isThermal ? "text-[11px]" : "text-sm"}`}
+          className={`receipt-ticket-no mt-1 font-mono font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-base"}`}
         >
           {transaction.id}
         </p>
         <p
-          className={`text-slate-500 ${isThermal ? "text-[10px]" : "text-sm"}`}
+          className={`text-slate-500 ${isCompact ? "text-[11px]" : "text-sm"}`}
         >
           {formatTimestamp(transaction.timestamp)}
         </p>
-        {isCredit && transaction.customerName && (
+        {transaction.customerName && (
           <p
-            className={`mt-1 text-slate-600 ${isThermal ? "text-[10px]" : "text-xs"}`}
+            className={`receipt-customer-name mt-1 font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-base"}`}
           >
-            Pelanggan: {transaction.customerName}
+            {transaction.customerName}
             {transaction.customerPhone ? ` · ${transaction.customerPhone}` : ""}
           </p>
         )}
       </header>
 
-      <div className={isThermal ? "px-3" : "px-8"}>
+      <div className={isCompact ? "px-3" : "px-8"}>
         <table
-          className={`w-full border-collapse ${isThermal ? "text-[10px]" : "text-sm"}`}
+          className={`w-full border-collapse ${isCompact ? "text-[12px]" : "text-sm"}`}
         >
           <thead>
             <tr
               className={`border-b border-slate-300 text-left uppercase text-slate-500 ${
-                isThermal ? "text-[9px]" : "text-xs"
+                isCompact ? "text-[10px]" : "text-xs"
               }`}
             >
-              <th className={`${isThermal ? "pb-1 pr-1" : "pb-2 pr-2"}`}>
+              <th className={`${isCompact ? "pb-1 pr-1" : "pb-2 pr-2"}`}>
                 Nama
               </th>
               <th
-                className={`text-center ${isThermal ? "pb-1 px-1" : "pb-2 px-2"}`}
+                className={`text-center ${isCompact ? "pb-1 px-1" : "pb-2 px-2"}`}
               >
                 Qty
               </th>
               <th
-                className={`text-right ${isThermal ? "pb-1 px-1" : "pb-2 px-2"}`}
+                className={`text-right ${isCompact ? "pb-1 px-1" : "pb-2 px-2"}`}
               >
                 Harga
               </th>
               <th
-                className={`text-right ${isThermal ? "pb-1 pl-1" : "pb-2 pl-2"}`}
+                className={`text-right ${isCompact ? "pb-1 pl-1" : "pb-2 pl-2"}`}
               >
                 Subtotal
               </th>
@@ -142,22 +149,22 @@ export default function ReceiptDocument({
                 className="border-b border-slate-100"
               >
                 <td
-                  className={`font-medium ${isThermal ? "py-1 pr-1" : "py-2 pr-2"}`}
+                  className={`font-medium ${isCompact ? "py-1 pr-1" : "py-2 pr-2"}`}
                 >
                   {item.productName}
                 </td>
                 <td
-                  className={`text-center tabular-nums ${isThermal ? "py-1 px-1" : "py-2 px-2"}`}
+                  className={`text-center tabular-nums ${isCompact ? "py-1 px-1" : "py-2 px-2"}`}
                 >
                   {item.quantity}
                 </td>
                 <td
-                  className={`text-right tabular-nums text-slate-600 ${isThermal ? "py-1 px-1" : "py-2 px-2"}`}
+                  className={`text-right tabular-nums text-slate-600 ${isCompact ? "py-1 px-1" : "py-2 px-2"}`}
                 >
                   {formatRupiah(item.unitPrice)}
                 </td>
                 <td
-                  className={`text-right tabular-nums font-medium ${isThermal ? "py-1 pl-1" : "py-2 pl-2"}`}
+                  className={`text-right tabular-nums font-medium ${isCompact ? "py-1 pl-1" : "py-2 pl-2"}`}
                 >
                   {formatRupiah(getTransactionItemSubtotal(item))}
                 </td>
@@ -168,14 +175,14 @@ export default function ReceiptDocument({
       </div>
 
       <footer
-        className={`border-dashed border-slate-300 ${isThermal ? "mx-3 mt-2 border-t px-0 py-2" : "mx-8 mt-4 border-t-2 px-0 py-4"}`}
+        className={`border-dashed border-slate-300 ${isCompact ? "mx-3 mt-2 border-t px-0 py-2" : "mx-8 mt-4 border-t-2 px-0 py-4"}`}
       >
         <dl
-          className={`space-y-1 ${isThermal ? "text-[10px]" : "text-sm"}`}
+          className={`space-y-1 ${isCompact ? "text-[12px]" : "text-sm"}`}
         >
-          <div className="flex justify-between">
-            <dt className="font-semibold text-slate-700">Total Belanja</dt>
-            <dd className="tabular-nums font-bold">
+          <div className="receipt-total flex justify-between">
+            <dt className="font-extrabold text-slate-900">Total Belanja</dt>
+            <dd className="tabular-nums font-extrabold">
               {formatRupiah(transaction.totalHarga)}
             </dd>
           </div>
@@ -220,7 +227,7 @@ export default function ReceiptDocument({
         </dl>
 
         <p
-          className={`mt-3 text-center text-slate-500 ${isThermal ? "text-[9px]" : "text-xs"}`}
+          className={`mt-3 text-center text-slate-500 ${isCompact ? "text-[10px]" : "text-xs"}`}
         >
           Terima kasih atas kunjungan Anda
         </p>

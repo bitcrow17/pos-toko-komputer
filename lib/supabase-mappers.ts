@@ -1,5 +1,6 @@
 import type { Customer } from "@/types/customer";
 import type { Partner, ServiceTicket } from "@/types/service";
+import { parseServiceAccessories } from "@/lib/service";
 import type { Product } from "@/types/product";
 import type { Transaction, TransactionItem } from "@/types/transaction";
 import type { Debt, DebtPaymentLog } from "@/types/debt";
@@ -211,6 +212,7 @@ export function mapDbService(row: DbService): ServiceTicket {
     deviceName: row.device_name,
     serialNumber: row.serial_number ?? undefined,
     problem: row.problem,
+    workNotes: row.work_notes?.trim() || undefined,
     handlingType: row.handling_type,
     partnerId: row.partner_id ?? undefined,
     partnerStatus: row.partner_status ?? undefined,
@@ -218,7 +220,7 @@ export function mapDbService(row: DbService): ServiceTicket {
     customerFee: Number(row.customer_fee),
     isComplaint: row.is_complaint,
     originalTicketNo: row.original_ticket_no ?? undefined,
-    accessories: row.accessories ?? undefined,
+    accessories: parseServiceAccessories(row.accessories),
     estimatedCompletionDate: row.estimated_completion_date ?? undefined,
     sparepartCost: row.sparepart_cost ?? undefined,
     netProfit: row.net_profit ?? undefined,
@@ -240,6 +242,7 @@ export function mapServiceToDb(ticket: ServiceTicket): DbService {
     device_name: ticket.deviceName,
     serial_number: ticket.serialNumber ?? null,
     problem: ticket.problem,
+    work_notes: ticket.workNotes?.trim() || null,
     handling_type: ticket.handlingType,
     partner_id: ticket.partnerId ?? null,
     partner_status: ticket.partnerStatus ?? null,

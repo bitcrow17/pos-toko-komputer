@@ -3,7 +3,7 @@
 import { STORE_INFO } from "@/lib/store-config";
 import { formatServiceAccessoriesLabel } from "@/lib/service";
 import type { ServiceTicket } from "@/types/service";
-import type { ReceiptLayout } from "./ReceiptModal";
+import type { ReceiptLayout } from "./ReceiptPrintBar";
 
 function formatRupiah(value: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -48,9 +48,11 @@ export default function ServiceIntakeReceiptDocument({
   className = "",
 }: ServiceIntakeReceiptDocumentProps) {
   const isThermal = layout === "thermal";
-  const textBase = isThermal ? "text-[11px]" : "text-sm";
-  const textSmall = isThermal ? "text-[10px]" : "text-xs";
-  const textTiny = isThermal ? "text-[9px]" : "text-[11px]";
+  const isDigital = layout === "digital";
+  const isCompact = isThermal || isDigital;
+  const textBase = isCompact ? "text-[13px]" : "text-sm";
+  const textSmall = isCompact ? "text-[11px]" : "text-xs";
+  const textTiny = isCompact ? "text-[10px]" : "text-[11px]";
 
   return (
     <article
@@ -58,17 +60,17 @@ export default function ServiceIntakeReceiptDocument({
       aria-label="Tanda terima servis masuk"
     >
       <header
-        className={`text-center ${isThermal ? "px-3 py-3" : "px-8 py-6"}`}
+        className={`text-center ${isCompact ? "px-3 py-3" : "px-8 py-6"}`}
       >
         <p
-          className={`font-bold uppercase tracking-widest text-slate-800 ${
-            isThermal ? "text-[11px]" : "text-sm"
+          className={`receipt-store-name font-extrabold uppercase tracking-widest text-slate-900 ${
+            isCompact ? "text-base" : "text-lg"
           }`}
         >
           {STORE_INFO.name}
         </p>
         <p
-          className={`mt-1 text-slate-600 ${isThermal ? "text-[10px] leading-tight" : "text-sm"}`}
+          className={`mt-1 text-slate-600 ${isCompact ? "text-[11px] leading-tight" : "text-sm"}`}
         >
           {STORE_INFO.address}
         </p>
@@ -77,15 +79,20 @@ export default function ServiceIntakeReceiptDocument({
         </p>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2 border-t" : "my-4 border-t-2"}`}
         />
 
         <h2
-          className={`font-bold text-slate-900 ${isThermal ? "text-sm" : "text-xl"}`}
+          className={`font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-xl"}`}
         >
           TANDA TERIMA SERVIS
         </h2>
-        <p className={`mt-1 font-mono font-semibold text-slate-800 ${textBase}`}>
+        {isDigital && (
+          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            Nota Digital
+          </p>
+        )}
+        <p className={`receipt-ticket-no mt-1 font-mono font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-base"}`}>
           {ticket.ticketNo}
         </p>
         <p className={`text-slate-500 ${textSmall}`}>
@@ -103,11 +110,13 @@ export default function ServiceIntakeReceiptDocument({
         </p>
       </header>
 
-      <section className={`${isThermal ? "px-3 pb-3" : "px-8 pb-6"} ${textBase}`}>
+      <section className={`${isCompact ? "px-3 pb-3" : "px-8 pb-6"} ${textBase}`}>
         <div className="space-y-1.5">
           <div className="flex justify-between gap-2">
             <span className="shrink-0 text-slate-500">Pelanggan</span>
-            <span className="text-right font-semibold">{ticket.customerName}</span>
+            <span className="receipt-customer-name text-right font-extrabold">
+              {ticket.customerName}
+            </span>
           </div>
           <div className="flex justify-between gap-2">
             <span className="shrink-0 text-slate-500">No. HP</span>
@@ -116,7 +125,7 @@ export default function ServiceIntakeReceiptDocument({
         </div>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2.5 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2.5 border-t" : "my-4 border-t-2"}`}
         />
 
         <h3
@@ -146,7 +155,7 @@ export default function ServiceIntakeReceiptDocument({
         </div>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2.5 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2.5 border-t" : "my-4 border-t-2"}`}
         />
 
         <div>
@@ -155,6 +164,15 @@ export default function ServiceIntakeReceiptDocument({
             {ticket.problem}
           </p>
         </div>
+
+        {ticket.workNotes?.trim() && (
+          <div className="mt-2">
+            <p className={`text-slate-500 ${textSmall}`}>Catatan Pengerjaan</p>
+            <p className="mt-1 whitespace-pre-wrap break-words leading-snug text-slate-900">
+              {ticket.workNotes}
+            </p>
+          </div>
+        )}
 
         {ticket.isComplaint && ticket.originalTicketNo && (
           <div className="mt-2 rounded border border-red-300 bg-red-50 px-2 py-1.5">
@@ -168,13 +186,13 @@ export default function ServiceIntakeReceiptDocument({
         )}
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2.5 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2.5 border-t" : "my-4 border-t-2"}`}
         />
 
         <div className="space-y-1.5">
           <div className="flex justify-between gap-2">
             <span className="text-slate-500">Estimasi Biaya</span>
-            <span className="font-semibold">
+            <span className="receipt-total font-extrabold">
               {ticket.isComplaint
                 ? "Rp 0 (Garansi)"
                 : ticket.customerFee > 0
@@ -193,7 +211,7 @@ export default function ServiceIntakeReceiptDocument({
         </div>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2.5 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2.5 border-t" : "my-4 border-t-2"}`}
         />
 
         <div>
@@ -214,7 +232,7 @@ export default function ServiceIntakeReceiptDocument({
         </div>
 
         <div
-          className={`grid grid-cols-2 gap-4 ${isThermal ? "mt-4" : "mt-8"} ${textTiny}`}
+          className={`grid grid-cols-2 gap-4 ${isCompact ? "mt-4" : "mt-8"} ${textTiny}`}
         >
           <div>
             <p className="mb-10 text-center text-slate-500">Pelanggan</p>

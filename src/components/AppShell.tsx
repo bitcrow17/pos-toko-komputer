@@ -12,7 +12,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser } = useApp();
   const isLoginPage = pathname === "/login";
   const isPartnerRoute = pathname.startsWith("/partner");
-  const isKasirRoute = pathname.startsWith("/kasir");
+  const isKasirRoute =
+    pathname.startsWith("/kasir") ||
+    pathname.startsWith("/retail") ||
+    pathname.startsWith("/service") ||
+    pathname.startsWith("/debt");
   const showSidebar = Boolean(currentUser) && !isLoginPage && !isPartnerRoute;
 
   const [collapsed, setCollapsed] = useState(false);

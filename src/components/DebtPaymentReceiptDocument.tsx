@@ -2,7 +2,7 @@
 
 import { STORE_INFO } from "@/lib/store-config";
 import type { DebtPaymentReceipt } from "@/types/debt-payment";
-import type { ReceiptLayout } from "./ReceiptModal";
+import type { ReceiptLayout } from "./ReceiptPrintBar";
 
 function formatRupiah(value: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -38,6 +38,8 @@ export default function DebtPaymentReceiptDocument({
   className = "",
 }: DebtPaymentReceiptDocumentProps) {
   const isThermal = layout === "thermal";
+  const isDigital = layout === "digital";
+  const isCompact = isThermal || isDigital;
   const isPaid = receipt.remainingAfter <= 0;
 
   return (
@@ -46,52 +48,57 @@ export default function DebtPaymentReceiptDocument({
       aria-label="Struk pembayaran utang"
     >
       <header
-        className={`text-center ${isThermal ? "px-3 py-3" : "px-8 py-6"}`}
+        className={`text-center ${isCompact ? "px-3 py-3" : "px-8 py-6"}`}
       >
         <p
-          className={`font-bold uppercase tracking-widest text-slate-800 ${
-            isThermal ? "text-[11px]" : "text-sm"
+          className={`receipt-store-name font-extrabold uppercase tracking-widest text-slate-900 ${
+            isCompact ? "text-base" : "text-lg"
           }`}
         >
           {STORE_INFO.name}
         </p>
         <p
-          className={`mt-1 text-slate-600 ${isThermal ? "text-[10px] leading-tight" : "text-sm"}`}
+          className={`mt-1 text-slate-600 ${isCompact ? "text-[10px] leading-tight" : "text-sm"}`}
         >
           {STORE_INFO.address}
         </p>
         <p
-          className={`text-slate-500 ${isThermal ? "text-[10px]" : "text-xs"}`}
+          className={`text-slate-500 ${isCompact ? "text-[10px]" : "text-xs"}`}
         >
           Telp: {STORE_INFO.phoneNumber}
         </p>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2 border-t" : "my-4 border-t-2"}`}
         />
 
         <h2
-          className={`font-bold text-slate-900 ${isThermal ? "text-sm" : "text-xl"}`}
+          className={`font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-xl"}`}
         >
-          {isThermal ? "BUKTI BAYAR UTANG" : "BUKTI PEMBAYARAN UTANG"}
+          {isCompact ? "BUKTI BAYAR UTANG" : "BUKTI PEMBAYARAN UTANG"}
         </h2>
+        {isDigital && (
+          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            Nota Digital
+          </p>
+        )}
         <p
-          className={`mt-1 font-mono text-slate-700 ${isThermal ? "text-[11px]" : "text-sm"}`}
+          className={`receipt-ticket-no mt-1 font-mono font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-base"}`}
         >
           {receipt.id}
         </p>
         <p
-          className={`text-slate-500 ${isThermal ? "text-[10px]" : "text-sm"}`}
+          className={`text-slate-500 ${isCompact ? "text-[10px]" : "text-sm"}`}
         >
           {formatTimestamp(receipt.timestamp)}
         </p>
       </header>
 
-      <div className={isThermal ? "px-3" : "px-8"}>
-        <dl className={`space-y-1.5 ${isThermal ? "text-[10px]" : "text-sm"}`}>
+      <div className={isCompact ? "px-3" : "px-8"}>
+        <dl className={`space-y-1.5 ${isCompact ? "text-[10px]" : "text-sm"}`}>
           <div className="flex justify-between gap-3">
             <dt className="text-slate-500">Pelanggan</dt>
-            <dd className="text-right font-medium text-slate-900">
+            <dd className="receipt-customer-name text-right font-extrabold text-slate-900">
               {receipt.customerName}
             </dd>
           </div>
@@ -117,12 +124,12 @@ export default function DebtPaymentReceiptDocument({
       </div>
 
       <footer
-        className={`border-dashed border-slate-300 ${isThermal ? "mx-3 mt-2 border-t px-0 py-2" : "mx-8 mt-4 border-t-2 px-0 py-4"}`}
+        className={`border-dashed border-slate-300 ${isCompact ? "mx-3 mt-2 border-t px-0 py-2" : "mx-8 mt-4 border-t-2 px-0 py-4"}`}
       >
-        <dl className={`space-y-1 ${isThermal ? "text-[10px]" : "text-sm"}`}>
-          <div className="flex justify-between">
-            <dt className="font-semibold text-slate-700">Nominal Dibayar</dt>
-            <dd className="tabular-nums font-bold text-emerald-700">
+        <dl className={`space-y-1 ${isCompact ? "text-[10px]" : "text-sm"}`}>
+          <div className="receipt-total flex justify-between">
+            <dt className="font-extrabold text-slate-900">Nominal Dibayar</dt>
+            <dd className="tabular-nums font-extrabold text-emerald-700">
               {formatRupiah(receipt.paymentAmount)}
             </dd>
           </div>
@@ -149,7 +156,7 @@ export default function DebtPaymentReceiptDocument({
         </dl>
 
         <p
-          className={`mt-3 text-center text-slate-500 ${isThermal ? "text-[9px]" : "text-xs"}`}
+          className={`mt-3 text-center text-slate-500 ${isCompact ? "text-[9px]" : "text-xs"}`}
         >
           Terima kasih atas pembayaran Anda
         </p>

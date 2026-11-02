@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS services (
   device_name TEXT NOT NULL,
   serial_number TEXT,
   problem TEXT NOT NULL,
+  work_notes TEXT,
   handling_type TEXT NOT NULL DEFAULT 'INTERNAL',
   partner_id TEXT,
   partner_status TEXT,

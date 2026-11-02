@@ -34,6 +34,13 @@ body {
     }
   }
 
+  html[data-receipt-layout="digital"] {
+    @page {
+      size: 80mm auto;
+      margin: 4mm;
+    }
+  }
+
   html[data-receipt-layout="a4"] {
     @page {
       size: A4 portrait;
@@ -119,10 +126,21 @@ body {
   }
 
   html[data-receipt-layout="thermal"] .receipt-print-area {
-    width: 72mm !important;
-    max-width: 72mm !important;
-    font-size: 11px !important;
-    line-height: 1.35 !important;
+    width: 76mm !important;
+    max-width: 76mm !important;
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+    font-weight: 700 !important;
+  }
+
+  html[data-receipt-layout="digital"] .receipt-print-area {
+    width: 76mm !important;
+    max-width: 76mm !important;
+    padding: 5mm !important;
+    font-family: var(--font-geist-sans), system-ui, sans-serif !important;
+    font-size: 12.5px !important;
+    line-height: 1.5 !important;
+    font-weight: 500 !important;
   }
 
   html[data-receipt-layout="a4"] .receipt-print-area {
@@ -133,10 +151,39 @@ body {
     font-size: 13px !important;
   }
 
+  html[data-receipt-layout="thermal"] .receipt-store-name,
+  html[data-receipt-layout="digital"] .receipt-store-name {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    color: black !important;
+  }
+
+  html[data-receipt-layout="thermal"] .receipt-ticket-no,
+  html[data-receipt-layout="digital"] .receipt-ticket-no {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    color: black !important;
+  }
+
+  html[data-receipt-layout="thermal"] .receipt-customer-name,
+  html[data-receipt-layout="digital"] .receipt-customer-name {
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: black !important;
+  }
+
+  html[data-receipt-layout="thermal"] .receipt-total,
+  html[data-receipt-layout="digital"] .receipt-total {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    color: black !important;
+  }
+
   .receipt-print-area h1,
   .receipt-print-area h2,
   .receipt-print-area h3 {
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     color: black !important;
   }
 

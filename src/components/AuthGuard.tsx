@@ -19,7 +19,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     if (currentUser && isLoginPage) {
       router.replace(
-        currentUser.role === "admin" ? "/admin/dashboard" : "/kasir",
+        currentUser.role === "admin" ? "/admin/dashboard" : "/retail",
       );
     }
   }, [currentUser, isLoginPage, isPartnerRoute, router]);

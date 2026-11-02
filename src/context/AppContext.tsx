@@ -52,7 +52,11 @@ import {
 import {
   buildPartnerFromInput,
   buildServiceFromInput,
+  applyServiceStatusSideEffects,
   computeServiceNetProfit,
+  isActiveServiceStatus,
+  normalizeWorkNotes,
+  preserveServiceWorkflowStatus,
   validatePartnerInput,
   validateServiceInput,
 } from "@/lib/service";
@@ -155,6 +159,10 @@ export interface AppContextValue {
     serviceId: string,
     partnerFee: number,
     status?: ServiceStatus,
+    extras?: {
+      workNotes?: string;
+      markComplaintReturn?: boolean;
+    },
   ) => Promise<void>;
   markServiceRepaired: (serviceId: string) => Promise<void>;
   sendServiceReturnToStore: (serviceId: string) => Promise<void>;
@@ -654,8 +662,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (ticket) =>
           ticket.partnerId === id &&
           ticket.handlingType === "PARTNER" &&
-          ticket.status !== "COMPLETED" &&
-          ticket.status !== "CANCELLED",
+          isActiveServiceStatus(ticket.status),
       );
       if (hasActiveService) {
         throw new Error(
@@ -697,9 +704,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateService = useCallback(
     async (id: string, updates: Partial<ServiceTicket>) => {
       await applyServiceChange(id, (ticket) => {
+        const nextStatus = updates.status ?? ticket.status;
+        const statusExtras = applyServiceStatusSideEffects(ticket, nextStatus);
+        const nextIsComplaint =
+          nextStatus === "COMPLAINT"
+            ? true
+            : (updates.isComplaint ?? statusExtras.isComplaint ?? ticket.isComplaint);
         const next = {
           ...ticket,
+          ...statusExtras,
           ...updates,
+          status: nextStatus,
+          isComplaint: nextIsComplaint,
+          partnerStatus:
+            updates.partnerStatus ??
+            statusExtras.partnerStatus ??
+            ticket.partnerStatus,
+          originalTicketNo: nextIsComplaint
+            ? (updates.originalTicketNo?.trim() ||
+              statusExtras.originalTicketNo ||
+              ticket.originalTicketNo ||
+              ticket.ticketNo)
+            : updates.originalTicketNo === undefined
+              ? ticket.originalTicketNo
+              : updates.originalTicketNo?.trim() || undefined,
+          problem:
+            updates.problem != null
+              ? updates.problem.trim()
+              : ticket.problem,
+          workNotes:
+            updates.workNotes != null
+              ? normalizeWorkNotes(updates.workNotes)
+              : ticket.workNotes,
           id: ticket.id,
           ticketNo: ticket.ticketNo,
           createdAt: ticket.createdAt,
@@ -739,7 +775,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await applyServiceChange(serviceId, (current) => ({
         ...current,
         partnerStatus: "IN_TRANSIT",
-        status: current.status === "QUEUED" ? "PROCESSING" : current.status,
+        status: preserveServiceWorkflowStatus(
+          current.status,
+          current.status === "QUEUED" ? "PROCESSING" : current.status,
+        ),
         updatedAt: new Date().toISOString(),
       }));
     },
@@ -757,7 +796,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await applyServiceChange(serviceId, (current) => ({
         ...current,
         partnerStatus: "RECEIVED_BY_PARTNER",
-        status: "PROCESSING",
+        status: preserveServiceWorkflowStatus(current.status, "PROCESSING"),
         updatedAt: new Date().toISOString(),
       }));
     },
@@ -765,17 +804,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const updateServicePartnerFee = useCallback(
-    async (serviceId: string, partnerFee: number, status?: ServiceStatus) => {
+    async (
+      serviceId: string,
+      partnerFee: number,
+      status?: ServiceStatus,
+      extras?: {
+        workNotes?: string;
+        markComplaintReturn?: boolean;
+      },
+    ) => {
       if (!Number.isFinite(partnerFee) || partnerFee < 0) {
         throw new Error("Biaya mitra harus angka ≥ 0.");
       }
 
       await applyServiceChange(serviceId, (ticket) => {
         const sparepartCost = ticket.sparepartCost ?? 0;
+        const nextStatus = extras?.markComplaintReturn
+          ? "COMPLAINT"
+          : (status ?? ticket.status);
+        const statusExtras = applyServiceStatusSideEffects(ticket, nextStatus);
+        const workNotes =
+          extras?.workNotes != null
+            ? normalizeWorkNotes(extras.workNotes)
+            : ticket.workNotes;
         return {
           ...ticket,
+          ...statusExtras,
           partnerFee,
-          status: status ?? ticket.status,
+          workNotes,
+          originalTicketNo: statusExtras.originalTicketNo,
+          status: nextStatus,
           netProfit: computeServiceNetProfit(
             ticket.customerFee,
             partnerFee,
@@ -792,8 +850,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (serviceId: string) => {
       await applyServiceChange(serviceId, (ticket) => ({
         ...ticket,
-        partnerStatus: "REPAIRED" as PartnerStatus,
-        status: "PROCESSING",
+        partnerStatus:
+          ticket.status === "COMPLAINT"
+            ? ("COMPLAINT_RETURN" as PartnerStatus)
+            : ("REPAIRED" as PartnerStatus),
+        status: preserveServiceWorkflowStatus(ticket.status, "PROCESSING"),
         updatedAt: new Date().toISOString(),
       }));
     },
@@ -806,7 +867,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!ticket) throw new Error("Tiket servis tidak ditemukan.");
       if (
         ticket.partnerStatus !== "REPAIRED" &&
-        ticket.partnerStatus !== "RECEIVED_BY_PARTNER"
+        ticket.partnerStatus !== "RECEIVED_BY_PARTNER" &&
+        ticket.partnerStatus !== "COMPLAINT_RETURN"
       ) {
         throw new Error("Unit belum siap dikirim balik ke toko utama.");
       }
@@ -831,7 +893,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await applyServiceChange(serviceId, (current) => ({
         ...current,
         partnerStatus: "RETURNED_TO_STORE",
-        status: "COMPLETED",
+        status:
+          current.status === "COMPLAINT" ||
+          current.partnerStatus === "COMPLAINT_RETURN"
+            ? "COMPLAINT"
+            : "COMPLETED",
         updatedAt: new Date().toISOString(),
       }));
     },
@@ -852,9 +918,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (ticket.isPaid) {
         throw new Error("Unit ini sudah dilunasi dan diambil.");
       }
-      if (ticket.status !== "COMPLETED") {
+      const readyForPickup =
+        ticket.status === "COMPLETED" ||
+        ticket.partnerStatus === "RETURNED_TO_STORE" ||
+        (ticket.status === "COMPLAINT" && ticket.handlingType === "INTERNAL");
+      if (!readyForPickup) {
         throw new Error(
-          "Unit belum berstatus Selesai / Siap Diambil. Selesaikan pengerjaan dulu.",
+          "Unit belum siap diambil. Selesaikan pengerjaan atau konfirmasi pengembalian dulu.",
         );
       }
 

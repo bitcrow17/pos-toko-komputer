@@ -16,9 +16,15 @@ export type PartnerStatus =
   | "RECEIVED_BY_PARTNER"
   | "REPAIRED"
   | "RETURN_IN_TRANSIT"
-  | "RETURNED_TO_STORE";
+  | "RETURNED_TO_STORE"
+  | "COMPLAINT_RETURN";
 
-export type ServiceStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "CANCELLED";
+export type ServiceStatus =
+  | "QUEUED"
+  | "PROCESSING"
+  | "COMPLAINT"
+  | "COMPLETED"
+  | "CANCELLED";
 
 /** Kelengkapan unit yang diterima saat intake */
 export type ServiceAccessory = "UNIT" | "CHARGER" | "BOX";
@@ -31,6 +37,8 @@ export interface ServiceTicket {
   deviceName: string;
   serialNumber?: string;
   problem: string;
+  /** Catatan pengerjaan teknisi / mitra — bisa diperbarui kapan saja */
+  workNotes?: string;
   handlingType: HandlingType;
   partnerId?: string;
   partnerStatus?: PartnerStatus;

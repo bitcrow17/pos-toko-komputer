@@ -20,6 +20,15 @@ function isActivePath(pathname: string, href: string): boolean {
   if (href === "/admin/dashboard") {
     return pathname === "/admin/dashboard" || pathname === "/";
   }
+  if (href === "/retail") {
+    return pathname === "/retail" || pathname === "/kasir";
+  }
+  if (href === "/service") {
+    return pathname === "/service" || pathname === "/servis";
+  }
+  if (href === "/debt") {
+    return pathname === "/debt" || pathname === "/utang";
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -103,18 +112,20 @@ function SettingsIcon({ className }: { className?: string }) {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: "Utama",
+    title: "Operasional POS & Kasir",
     items: [
-      { href: "/admin/dashboard", label: "Dashboard", roles: ["admin"], icon: <DashboardIcon className="h-4 w-4 shrink-0" /> },
-      { href: "/kasir", label: "Kasir / Point of Sale", roles: ["admin", "kasir"], icon: <KasirIcon className="h-4 w-4 shrink-0" /> },
+      { href: "/retail", label: "Retail / Kasir POS", roles: ["admin", "kasir"], icon: <KasirIcon className="h-4 w-4 shrink-0" /> },
+      { href: "/service", label: "Servis & Garansi", roles: ["admin", "kasir"], icon: <ServiceIcon className="h-4 w-4 shrink-0" /> },
+      { href: "/debt", label: "Pencatatan Utang", roles: ["admin", "kasir"], icon: <DebtIcon className="h-4 w-4 shrink-0" /> },
     ],
   },
   {
-    title: "Operasional & Penjualan",
+    title: "Administrasi & Stok",
     items: [
+      { href: "/admin/dashboard", label: "Dashboard", roles: ["admin"], icon: <DashboardIcon className="h-4 w-4 shrink-0" /> },
       { href: "/admin/produk", label: "Kelola Stok / Inventaris", roles: ["admin"], icon: <StockIcon className="h-4 w-4 shrink-0" /> },
-      { href: "/admin/services", label: "Manajemen Servis", roles: ["admin"], icon: <ServiceIcon className="h-4 w-4 shrink-0" /> },
-      { href: "/admin/debts", label: "Manajemen Utang / Piutang", roles: ["admin"], icon: <DebtIcon className="h-4 w-4 shrink-0" /> },
+      { href: "/admin/services", label: "Semua Data Servis", roles: ["admin"], icon: <ServiceIcon className="h-4 w-4 shrink-0" /> },
+      { href: "/admin/debts", label: "Semua Data Utang", roles: ["admin"], icon: <DebtIcon className="h-4 w-4 shrink-0" /> },
     ],
   },
   {

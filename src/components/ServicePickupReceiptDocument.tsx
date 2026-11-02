@@ -3,7 +3,7 @@
 import { STORE_INFO } from "@/lib/store-config";
 import type { ServiceTicket } from "@/types/service";
 import type { Transaction } from "@/types/transaction";
-import type { ReceiptLayout } from "./ReceiptModal";
+import type { ReceiptLayout } from "./ReceiptPrintBar";
 
 function formatRupiah(value: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -42,6 +42,8 @@ export default function ServicePickupReceiptDocument({
   className = "",
 }: ServicePickupReceiptDocumentProps) {
   const isThermal = layout === "thermal";
+  const isDigital = layout === "digital";
+  const isCompact = isThermal || isDigital;
 
   return (
     <article
@@ -49,50 +51,55 @@ export default function ServicePickupReceiptDocument({
       aria-label="Struk pengambilan servis"
     >
       <header
-        className={`text-center ${isThermal ? "px-3 py-3" : "px-8 py-6"}`}
+        className={`text-center ${isCompact ? "px-3 py-3" : "px-8 py-6"}`}
       >
         <p
-          className={`font-bold uppercase tracking-widest text-slate-800 ${
-            isThermal ? "text-[11px]" : "text-sm"
+          className={`receipt-store-name font-extrabold uppercase tracking-widest text-slate-900 ${
+            isCompact ? "text-base" : "text-lg"
           }`}
         >
           {STORE_INFO.name}
         </p>
         <p
-          className={`mt-1 text-slate-600 ${isThermal ? "text-[10px] leading-tight" : "text-sm"}`}
+          className={`mt-1 text-slate-600 ${isCompact ? "text-[10px] leading-tight" : "text-sm"}`}
         >
           {STORE_INFO.address}
         </p>
         <p
-          className={`text-slate-500 ${isThermal ? "text-[10px]" : "text-xs"}`}
+          className={`text-slate-500 ${isCompact ? "text-[10px]" : "text-xs"}`}
         >
           Telp: {STORE_INFO.phoneNumber}
         </p>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-2 border-t" : "my-4 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-2 border-t" : "my-4 border-t-2"}`}
         />
 
         <h2
-          className={`font-bold text-slate-900 ${isThermal ? "text-sm" : "text-xl"}`}
+          className={`font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-xl"}`}
         >
           {ticket.isComplaint
             ? "STRUK AMBIL UNIT KOMPLAIN"
             : "STRUK PENGAMBILAN SERVIS"}
         </h2>
+        {isDigital && (
+          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            Nota Digital
+          </p>
+        )}
         <p
-          className={`mt-1 font-mono text-slate-700 ${isThermal ? "text-[11px]" : "text-sm"}`}
+          className={`receipt-ticket-no mt-1 font-mono font-extrabold text-slate-900 ${isCompact ? "text-sm" : "text-base"}`}
         >
           {transaction.id}
         </p>
         <p
-          className={`text-slate-500 ${isThermal ? "text-[10px]" : "text-xs"}`}
+          className={`text-slate-500 ${isCompact ? "text-[10px]" : "text-xs"}`}
         >
           {formatTimestamp(transaction.timestamp)}
         </p>
         {ticket.isComplaint && (
           <p
-            className={`mt-2 font-semibold text-red-700 ${isThermal ? "text-[10px]" : "text-xs"}`}
+            className={`mt-2 font-semibold text-red-700 ${isCompact ? "text-[10px]" : "text-xs"}`}
           >
             UNIT KOMPLAIN / GARANSI — TANPA ONGKOS
           </p>
@@ -100,12 +107,14 @@ export default function ServicePickupReceiptDocument({
       </header>
 
       <section
-        className={isThermal ? "px-3 pb-3 text-[11px]" : "px-8 pb-6 text-sm"}
+        className={isCompact ? "px-3 pb-3 text-[11px]" : "px-8 pb-6 text-sm"}
       >
         <div className="space-y-2">
           <div className="flex justify-between gap-2">
             <span className="text-slate-500">No. Tiket</span>
-            <span className="font-mono font-semibold">{ticket.ticketNo}</span>
+            <span className="receipt-ticket-no font-mono font-extrabold">
+              {ticket.ticketNo}
+            </span>
           </div>
           {ticket.originalTicketNo && (
             <div className="flex justify-between gap-2">
@@ -115,7 +124,9 @@ export default function ServicePickupReceiptDocument({
           )}
           <div className="flex justify-between gap-2">
             <span className="text-slate-500">Pelanggan</span>
-            <span className="text-right font-medium">{ticket.customerName}</span>
+            <span className="receipt-customer-name text-right font-extrabold">
+              {ticket.customerName}
+            </span>
           </div>
           <div className="flex justify-between gap-2">
             <span className="text-slate-500">HP</span>
@@ -134,11 +145,11 @@ export default function ServicePickupReceiptDocument({
         </div>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-3 border-t" : "my-5 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-3 border-t" : "my-5 border-t-2"}`}
         />
 
         <div className="space-y-1">
-          <div className="flex justify-between font-semibold">
+          <div className="receipt-total flex justify-between font-extrabold">
             <span>Biaya Servis</span>
             <span>{formatRupiah(transaction.totalHarga)}</span>
           </div>
@@ -158,11 +169,11 @@ export default function ServicePickupReceiptDocument({
         </div>
 
         <div
-          className={`border-dashed border-slate-300 ${isThermal ? "my-3 border-t" : "my-5 border-t-2"}`}
+          className={`border-dashed border-slate-300 ${isCompact ? "my-3 border-t" : "my-5 border-t-2"}`}
         />
 
         <p
-          className={`text-center text-slate-500 ${isThermal ? "text-[9px]" : "text-[11px]"}`}
+          className={`text-center text-slate-500 ${isCompact ? "text-[9px]" : "text-[11px]"}`}
         >
           Unit telah diambil pelanggan. Simpan struk ini sebagai bukti
           pengambilan.

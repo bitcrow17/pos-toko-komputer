@@ -95,6 +95,7 @@ export interface DbService {
   device_name: string;
   serial_number?: string | null;
   problem: string;
+  work_notes?: string | null;
   handling_type: HandlingType;
   partner_id?: string | null;
   partner_status?: PartnerStatus | null;

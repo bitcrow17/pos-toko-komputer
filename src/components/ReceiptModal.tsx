@@ -5,7 +5,7 @@ import type { Transaction } from "@/types/transaction";
 import type { Debt } from "@/types/debt";
 import ReceiptDocument from "./ReceiptDocument";
 
-export type ReceiptLayout = "a4" | "thermal";
+export type ReceiptLayout = "a4" | "thermal" | "digital";
 
 interface ReceiptModalProps {
   transaction: Transaction;

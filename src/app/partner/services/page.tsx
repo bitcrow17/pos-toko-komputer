@@ -65,6 +65,7 @@ function PartnerServicesContent() {
   const [partnerFeeInput, setPartnerFeeInput] = useState("");
   const [diagnosisNote, setDiagnosisNote] = useState("");
   const [markRepaired, setMarkRepaired] = useState(false);
+  const [markComplaintReturn, setMarkComplaintReturn] = useState(false);
 
   useEffect(() => {
     const fromUrl = searchParams.get("partnerId")?.trim();
@@ -122,8 +123,12 @@ function PartnerServicesContent() {
   function openFeeModal(ticket: ServiceTicket) {
     setFeeModalTicket(ticket);
     setPartnerFeeInput(ticket.partnerFee > 0 ? String(ticket.partnerFee) : "");
-    setDiagnosisNote(ticket.problem);
+    setDiagnosisNote(ticket.workNotes ?? "");
     setMarkRepaired(ticket.partnerStatus === "REPAIRED");
+    setMarkComplaintReturn(
+      ticket.status === "COMPLAINT" ||
+        ticket.partnerStatus === "COMPLAINT_RETURN",
+    );
   }
 
   async function handleSaveFee() {
@@ -132,9 +137,13 @@ function PartnerServicesContent() {
       await updateServicePartnerFee(
         feeModalTicket.id,
         parseRupiahInput(partnerFeeInput),
-        "PROCESSING",
+        markComplaintReturn ? "COMPLAINT" : feeModalTicket.status,
+        {
+          workNotes: diagnosisNote,
+          markComplaintReturn,
+        },
       );
-      if (markRepaired) {
+      if (markRepaired && !markComplaintReturn) {
         await markServiceRepaired(feeModalTicket.id);
       }
       setFeeModalTicket(null);
@@ -309,6 +318,11 @@ function PartnerServicesContent() {
                       <p className="mt-1 text-xs text-slate-500">
                         {ticket.problem}
                       </p>
+                      {ticket.workNotes?.trim() && (
+                        <p className="mt-1 line-clamp-2 text-xs text-indigo-600">
+                          Catatan mitra: {ticket.workNotes}
+                        </p>
+                      )}
                       {ticket.isComplaint && getComplaintWarning(ticket) && (
                         <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-[11px] font-medium text-red-200">
                           {getComplaintWarning(ticket)}
@@ -350,17 +364,19 @@ function PartnerServicesContent() {
                         )}
                         {(ticket.partnerStatus === "RECEIVED_BY_PARTNER" ||
                           ticket.partnerStatus === "REPAIRED" ||
-                          ticket.partnerStatus === "IN_TRANSIT") && (
+                          ticket.partnerStatus === "IN_TRANSIT" ||
+                          ticket.partnerStatus === "COMPLAINT_RETURN") && (
                           <button
                             type="button"
                             onClick={() => openFeeModal(ticket)}
                             className="rounded-lg border border-slate-600 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
                           >
-                            Update Biaya & Diagnosa
+                            Update Catatan & Biaya
                           </button>
                         )}
                         {(ticket.partnerStatus === "REPAIRED" ||
-                          ticket.partnerStatus === "RECEIVED_BY_PARTNER") && (
+                          ticket.partnerStatus === "RECEIVED_BY_PARTNER" ||
+                          ticket.partnerStatus === "COMPLAINT_RETURN") && (
                           <button
                             type="button"
                             onClick={() => handleSendReturn(ticket)}
@@ -399,7 +415,7 @@ function PartnerServicesContent() {
                 id="partner-fee-title"
                 className="text-lg font-semibold text-white"
               >
-                Update Biaya & Diagnosa
+                Update Catatan, Biaya & Status
               </h2>
               <p className="text-sm text-slate-400">{feeModalTicket.ticketNo}</p>
             </div>
@@ -436,20 +452,40 @@ function PartnerServicesContent() {
                 )}
               </label>
               <label className="block text-sm text-slate-400">
-                Catatan Diagnosa
+                Catatan Pengerjaan / Diagnosa Mitra
                 <textarea
-                  rows={3}
+                  rows={4}
                   value={diagnosisNote}
                   onChange={(e) => setDiagnosisNote(e.target.value)}
-                  className={`${INPUT_CLASS} mt-1.5 resize-none`}
+                  placeholder="Diagnosa, sparepart, catatan tambahan…"
+                  className={`${INPUT_CLASS} mt-1.5 resize-y`}
                 />
+              </label>
+              <label className="flex items-start gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={markComplaintReturn}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setMarkComplaintReturn(checked);
+                    if (checked) setMarkRepaired(false);
+                  }}
+                  className="mt-0.5 rounded border-slate-600 bg-slate-950 text-red-500"
+                />
+                <span>
+                  Retur komplain ke toko
+                  <span className="mt-0.5 block text-xs text-slate-500">
+                    Bisa dicatat langsung tanpa menunggu status selesai.
+                  </span>
+                </span>
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-300">
                 <input
                   type="checkbox"
                   checked={markRepaired}
+                  disabled={markComplaintReturn}
                   onChange={(e) => setMarkRepaired(e.target.checked)}
-                  className="rounded border-slate-600 bg-slate-950 text-cyan-600"
+                  className="rounded border-slate-600 bg-slate-950 text-cyan-600 disabled:opacity-50"
                 />
                 Tandai unit selesai diperbaiki
               </label>
