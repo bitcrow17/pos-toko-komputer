@@ -494,22 +494,40 @@ export async function upsertCustomerByContact(
 }
 
 export async function getNextServiceTicketNo(): Promise<string> {
-  const { data: lastTickets } = await supabase
+  // Build today's date prefix: YYYYMMDD (local time)
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const datePrefix = `SVC-${yyyy}${mm}${dd}`;
+
+  // Query only today's tickets to find the max sequence for today
+  const { data, error } = await supabase
     .from("services")
     .select("ticket_no")
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .like("ticket_no", `${datePrefix}-%`);
 
-  let nextNumber = 1;
+  if (error) {
+    console.warn(
+      "getNextServiceTicketNo: query failed, using fallback seq=1",
+      error.message,
+    );
+  }
 
-  if (lastTickets && lastTickets.length > 0 && lastTickets[0].ticket_no) {
-    const lastNo = lastTickets[0].ticket_no;
-    const currentNum = parseInt(lastNo.replace(/\D/g, ""), 10);
-    if (!isNaN(currentNum)) {
-      nextNumber = currentNum + 1;
+  let maxSeq = 0;
+  if (data && data.length > 0) {
+    for (const row of data) {
+      const tn = row.ticket_no as string | null;
+      const match = tn?.match(/^SVC-\d{8}-(\d+)$/);
+      if (match) {
+        const seq = parseInt(match[1], 10);
+        if (!isNaN(seq) && seq > maxSeq) {
+          maxSeq = seq;
+        }
+      }
     }
   }
 
-  const currentYear = new Date().getFullYear();
-  return `SVC-${currentYear}-${String(nextNumber).padStart(4, "0")}`;
+  const nextSeq = maxSeq + 1;
+  return `${datePrefix}-${String(nextSeq).padStart(3, "0")}`;
 }
