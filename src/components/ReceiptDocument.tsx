@@ -1,7 +1,7 @@
 "use client";
 
 import { getTransactionItemSubtotal } from "@/lib/transaction";
-import { STORE_INFO } from "@/lib/store-config";
+import { useStoreSettings } from "@/src/context/StoreSettingsContext";
 import type { Transaction } from "@/types/transaction";
 import type { Debt } from "@/types/debt";
 import type { ReceiptLayout } from "./ReceiptModal";
@@ -41,6 +41,7 @@ export default function ReceiptDocument({
   debt = null,
   className = "",
 }: ReceiptDocumentProps) {
+  const { settings: store } = useStoreSettings();
   const isThermal = layout === "thermal";
   const isDigital = layout === "digital";
   const isCompact = isThermal || isDigital;
@@ -60,22 +61,30 @@ export default function ReceiptDocument({
       <header
         className={`text-center ${isCompact ? "px-3 py-3" : "px-8 py-6"}`}
       >
+        {store.logoDataUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={store.logoDataUrl}
+            alt="Logo Toko"
+            className={`mx-auto object-contain ${isCompact ? "mb-1.5 h-10" : "mb-2 h-14"}`}
+          />
+        )}
         <p
           className={`receipt-store-name font-extrabold uppercase tracking-widest text-slate-900 ${
             isCompact ? "text-base" : "text-lg"
           }`}
         >
-          {STORE_INFO.name}
+          {store.name}
         </p>
         <p
           className={`mt-1 text-slate-600 ${isCompact ? "text-[11px] leading-tight" : "text-sm"}`}
         >
-          {STORE_INFO.address}
+          {store.address}
         </p>
         <p
           className={`text-slate-500 ${isCompact ? "text-[11px]" : "text-xs"}`}
         >
-          Telp: {STORE_INFO.phoneNumber}
+          Telp: {store.phoneNumber}
         </p>
 
         <div

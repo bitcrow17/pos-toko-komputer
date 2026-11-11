@@ -30,7 +30,7 @@ body {
   html[data-receipt-layout="thermal"] {
     @page {
       size: 80mm auto;
-      margin: 2mm;
+      margin: 2mm 0;
     }
   }
 
@@ -43,8 +43,8 @@ body {
 
   html[data-receipt-layout="a4"] {
     @page {
-      size: A4 portrait;
-      margin: 12mm;
+      size: auto;
+      margin: 10mm;
     }
   }
 
@@ -54,6 +54,9 @@ body {
     color: black !important;
     width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
     overflow: visible !important;
   }
 
@@ -67,46 +70,88 @@ body {
     visibility: visible;
   }
 
+  /* Hilangkan ruang untuk konten halaman utama saat modal cetak aktif agar tidak muncul halaman kosong */
+  body:has(.receipt-modal-root) [data-app-chrome],
+  body:has(.receipt-modal-root) aside,
+  body:has(.receipt-modal-root) nav,
+  body:has(.receipt-modal-root) header,
+  body:has(.receipt-modal-root) main > div > *:not(.receipt-modal-root),
+  body:has(.receipt-modal-root) main > *:not(.receipt-modal-root) {
+    display: none !important;
+  }
+
+  /* Semua chrome UI: sidebar, navigasi, tombol, header halaman */
   [data-app-chrome],
   aside,
   nav,
-  header:not(.receipt-print-area),
+  header:not(.receipt-print-area header),
   .no-print,
+  .print\:hidden,
   .receipt-modal-overlay,
   .receipt-modal-actions,
   .receipt-modal-banner,
+  /* Tombol-tombol di luar struk */
   button:not(.receipt-print-area button) {
     display: none !important;
+    visibility: hidden !important;
   }
 
   main {
     padding: 0 !important;
     margin: 0 !important;
     background: white !important;
+    min-height: 0 !important;
+  }
+
+  /* Offset sidebar tidak berlaku saat print */
+  main[class*="lg:pl-"] {
+    padding-left: 0 !important;
   }
 
   .receipt-modal-root {
     position: static !important;
     display: block !important;
     padding: 0 !important;
+    margin: 0 auto !important;
     min-height: auto !important;
     background: white !important;
   }
 
   .receipt-modal-root > div:not(.receipt-modal-overlay) {
     max-width: none !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    display: block !important;
     border: none !important;
     box-shadow: none !important;
     overflow: visible !important;
     background: white !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+  }
+
+  /* Hilangkan flex-layout modal di print agar tidak memotong nota */
+  .receipt-modal-root section,
+  .receipt-modal-root section > div {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
   .receipt-print-area {
-    position: absolute !important;
-    top: 0 !important;
-    left: 50% !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
     right: auto !important;
-    transform: translateX(-50%) !important;
+    transform: none !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 auto !important;
@@ -117,6 +162,8 @@ body {
     border: none !important;
     border-radius: 0 !important;
     overflow: visible !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
     font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", "Roboto Mono",
       monospace, system-ui, sans-serif !important;
     font-size: 12px !important;
@@ -125,28 +172,39 @@ body {
     print-color-adjust: exact;
   }
 
+  /* Logo di struk */
+  .receipt-print-area img {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    max-width: 100% !important;
+  }
+
   html[data-receipt-layout="thermal"] .receipt-print-area {
-    width: 76mm !important;
-    max-width: 76mm !important;
-    font-size: 14px !important;
-    line-height: 1.45 !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    padding: 2mm !important;
+    box-sizing: border-box !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
     font-weight: 700 !important;
   }
 
   html[data-receipt-layout="digital"] .receipt-print-area {
-    width: 76mm !important;
-    max-width: 76mm !important;
-    padding: 5mm !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    padding: 4mm !important;
+    box-sizing: border-box !important;
     font-family: var(--font-geist-sans), system-ui, sans-serif !important;
-    font-size: 12.5px !important;
-    line-height: 1.5 !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
     font-weight: 500 !important;
   }
 
   html[data-receipt-layout="a4"] .receipt-print-area {
     width: 100% !important;
-    max-width: 186mm !important;
-    padding: 0 !important;
+    max-width: 180mm !important;
+    padding: 4mm !important;
+    box-sizing: border-box !important;
     font-family: var(--font-geist-sans), system-ui, sans-serif !important;
     font-size: 13px !important;
   }

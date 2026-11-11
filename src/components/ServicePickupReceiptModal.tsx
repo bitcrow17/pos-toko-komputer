@@ -32,6 +32,68 @@ function PrinterIcon({ className }: { className?: string }) {
   );
 }
 
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+function ThermalReceiptIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+      <path d="M8 7h8" />
+      <path d="M8 11h8" />
+      <path d="M8 15h5" />
+    </svg>
+  );
+}
+
+function DocumentA4Icon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <line x1="10" y1="9" x2="8" y2="9" />
+    </svg>
+  );
+}
+
 export default function ServicePickupReceiptModal({
   transaction,
   ticket,
@@ -69,7 +131,7 @@ export default function ServicePickupReceiptModal({
 
   return (
     <div
-      className="receipt-modal-root fixed inset-0 z-50 flex items-center justify-center p-4 print:static print:inset-auto print:block print:p-0"
+      className="receipt-modal-root fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 print:static print:inset-auto print:block print:p-0"
       role="dialog"
       aria-modal="true"
       aria-labelledby="service-pickup-title"
@@ -77,97 +139,169 @@ export default function ServicePickupReceiptModal({
       <button
         type="button"
         aria-label="Tutup modal"
-        className="receipt-modal-overlay absolute inset-0 bg-slate-950/70 backdrop-blur-sm print:hidden"
+        className="receipt-modal-overlay absolute inset-0 bg-slate-950/80 backdrop-blur-sm print:hidden"
         onClick={onClose}
       />
 
-      <div
-        className={`relative z-10 flex w-full flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl print:border-0 print:bg-transparent print:shadow-none ${
-          layout === "thermal" ? "max-w-sm" : "max-w-2xl"
-        }`}
-      >
-        <div className="receipt-modal-banner flex items-center gap-3 border-b border-emerald-500/30 bg-emerald-500/10 px-5 py-4 print:hidden">
-          <div>
-            <h2
-              id="service-pickup-title"
-              className="text-base font-semibold text-emerald-100"
-            >
-              Unit Siap Diserahkan
-            </h2>
-            <p className="text-sm text-emerald-200/80">
-              Kas{" "}
-              {transaction.totalHarga > 0
-                ? "servis telah dicatat"
-                : "komplain (Rp 0) telah dicatat"}
-              . Cetak struk pengambilan.
-            </p>
+      <div className="relative z-10 flex w-full max-w-5xl h-[92vh] max-h-[820px] flex-col md:flex-row overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl print:h-auto print:max-h-none print:max-w-none print:border-0 print:bg-transparent print:shadow-none print:rounded-none">
+        
+        {/* KOLOM UTAMA (TENGAH / KIRI): AREA PRATAYANG STRUK PENGAMBILAN */}
+        <section
+          aria-label="Pratayang Struk Pengambilan"
+          className="flex-1 flex flex-col min-w-0 bg-slate-950/60 print:bg-transparent print:block print:p-0"
+        >
+          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 py-2.5 text-xs text-slate-400 print:hidden">
+            <span className="flex items-center gap-2 font-medium text-slate-300">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+              Pratayang Struk ({layout === "thermal" ? "Thermal 80mm" : "Format A5/A4"})
+            </span>
+            <span className="text-[11px] text-slate-500">
+              Gunakan scroll bila nota panjang
+            </span>
           </div>
-        </div>
 
-        <div className="overflow-y-auto print:overflow-visible">
-          <ServicePickupReceiptDocument
-            transaction={transaction}
-            ticket={ticket}
-            layout={layout}
-            className={
-              layout === "thermal" ? "rounded-none" : "rounded-none border-x-0"
-            }
-          />
-        </div>
-
-        <div className="receipt-modal-actions space-y-3 border-t border-slate-800 bg-slate-950/80 px-5 py-4 print:hidden">
-          <fieldset>
-            <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Format Cetak
-            </legend>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex justify-center items-start print:p-0 print:overflow-visible print:block">
             <div
-              className="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-1"
-              role="group"
+              className={`transition-all duration-200 print:w-full ${
+                layout === "thermal"
+                  ? "w-[340px] max-w-full shadow-2xl rounded-sm ring-1 ring-slate-800"
+                  : "w-[580px] max-w-full shadow-2xl rounded-sm ring-1 ring-slate-800"
+              }`}
             >
-              <button
-                type="button"
-                onClick={() => setLayout("thermal")}
-                aria-pressed={layout === "thermal"}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  layout === "thermal"
-                    ? "bg-cyan-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800"
-                }`}
-              >
-                Struk 80mm
-              </button>
-              <button
-                type="button"
-                onClick={() => setLayout("a4")}
-                aria-pressed={layout === "a4"}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  layout === "a4"
-                    ? "bg-cyan-600 text-white"
-                    : "text-slate-400 hover:bg-slate-800"
-                }`}
-              >
-                A4
-              </button>
+              <ServicePickupReceiptDocument
+                transaction={transaction}
+                ticket={ticket}
+                layout={layout}
+                className="rounded-sm"
+              />
             </div>
-          </fieldset>
+          </div>
+        </section>
 
-          <button
-            type="button"
-            onClick={triggerPrint}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3 text-sm font-semibold text-white hover:bg-cyan-500"
-          >
-            <PrinterIcon className="h-4 w-4" />
-            Cetak Struk Pengambilan
-          </button>
+        {/* SIDEBAR PANEL (SAMPING KANAN): KONTROL FORMAT & TOMBOL AKSI */}
+        <aside
+          aria-label="Panel Opsi Cetak"
+          className="receipt-modal-actions w-full md:w-80 lg:w-96 shrink-0 border-t md:border-t-0 md:border-l border-slate-800 bg-slate-900 flex flex-col justify-between overflow-y-auto print:hidden"
+        >
+          <div className="p-5 space-y-5">
+            <div className="receipt-modal-banner flex items-start gap-3">
+              <CheckCircleIcon className="h-7 w-7 shrink-0 text-emerald-400 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="service-pickup-title"
+                  className="text-base font-bold text-white truncate"
+                >
+                  Unit Siap Diserahkan
+                </h2>
+                <p className="mt-0.5 font-mono text-xs font-semibold text-cyan-400">
+                  {ticket.ticketNo}
+                </p>
+                <p className="mt-0.5 text-xs text-emerald-300">
+                  {transaction.totalHarga > 0
+                    ? "Pelunasan kas servis dicatat"
+                    : "Servis komplain (Rp 0) dicatat"}
+                </p>
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-xl border border-slate-700 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800"
-          >
-            Tutup
-          </button>
-        </div>
+            <div className="border-t border-slate-800/80" />
+
+            {/* Pilihan Format Kertas */}
+            <fieldset className="space-y-2.5">
+              <legend className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Format Kertas Cetak
+              </legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setLayout("thermal")}
+                  aria-pressed={layout === "thermal"}
+                  className={`flex items-start gap-3 p-3 rounded-xl border text-left transition ${
+                    layout === "thermal"
+                      ? "border-cyan-500 bg-cyan-950/30 text-white ring-1 ring-cyan-500/50"
+                      : "border-slate-800 bg-slate-950/40 text-slate-300 hover:border-slate-700 hover:bg-slate-800/60"
+                  }`}
+                >
+                  <ThermalReceiptIcon
+                    className={`h-5 w-5 shrink-0 mt-0.5 ${
+                      layout === "thermal" ? "text-cyan-400" : "text-slate-500"
+                    }`}
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5 font-semibold text-sm">
+                      Struk 80mm
+                      {layout === "thermal" && (
+                        <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded font-normal">
+                          Aktif
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                      Cocok untuk bukti pengambilan struk pelanggan.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLayout("a4")}
+                  aria-pressed={layout === "a4"}
+                  className={`flex items-start gap-3 p-3 rounded-xl border text-left transition ${
+                    layout === "a4"
+                      ? "border-cyan-500 bg-cyan-950/30 text-white ring-1 ring-cyan-500/50"
+                      : "border-slate-800 bg-slate-950/40 text-slate-300 hover:border-slate-700 hover:bg-slate-800/60"
+                  }`}
+                >
+                  <DocumentA4Icon
+                    className={`h-5 w-5 shrink-0 mt-0.5 ${
+                      layout === "a4" ? "text-cyan-400" : "text-slate-500"
+                    }`}
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5 font-semibold text-sm">
+                      Kertas A5 / A4
+                      {layout === "a4" && (
+                        <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded font-normal">
+                          Aktif
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                      Format surat tanda terima lebar untuk arsip administrasi toko.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </fieldset>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 text-[11px] text-slate-400">
+              <p className="font-semibold text-slate-300">💡 Tips Printer:</p>
+              <p className="mt-1 leading-relaxed">
+                Struk pengambilan merupakan tanda bukti sah bahwa unit telah
+                diterima kembali oleh pelanggan.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-5 border-t border-slate-800 bg-slate-950/60 space-y-2.5">
+            <button
+              type="button"
+              onClick={triggerPrint}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:bg-cyan-500 active:scale-[0.99]"
+            >
+              <PrinterIcon className="h-5 w-5" />
+              Cetak Struk Pengambilan
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-xl border border-slate-700/80 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            >
+              Tutup
+            </button>
+          </div>
+        </aside>
       </div>
     </div>
   );
