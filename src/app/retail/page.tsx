@@ -48,6 +48,7 @@ import KasirCreditDebtModal, {
   type CreditDebtFormValues,
 } from "@/src/components/KasirCreditDebtModal";
 import SearchInput from "@/src/components/ui/SearchInput";
+import BarcodeScannerModal from "@/src/components/BarcodeScannerModal";
 import { useToast } from "@/src/components/ui/Toast";
 import ModeBadge from "@/src/components/ui/ModeBadge";
 import {
@@ -144,6 +145,7 @@ export default function KasirPage() {
   const [isCreditDebtModalOpen, setIsCreditDebtModalOpen] = useState(false);
 
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [qtyDraftByProduct, setQtyDraftByProduct] = useState<
     Record<string, string>
   >({});
@@ -383,6 +385,55 @@ export default function KasirPage() {
     }
 
     addTopFilteredProductToCart();
+  }
+
+  async function handleBarcodeScanned(scannedCode: string) {
+    const code = scannedCode.trim();
+    if (!code) return;
+
+    try {
+      // 1. Cek di Supabase database
+      const dbMatch = await findProductByBarcodeInDb(code);
+      if (dbMatch) {
+        const catalogMatch = buildCatalog([dbMatch])[0];
+        const result = addToCartLogic(cartItems, catalogMatch);
+        if (result.alert) {
+          showAlert(result.alert.message);
+          showToast(result.alert.message, "error");
+          return;
+        }
+        setCartItems(result.items);
+        setAlertMessage(null);
+        showToast(`+1 ${catalogMatch.name}`, "success");
+        return;
+      }
+
+      // 2. Cek di local catalog
+      const localMatch = catalogProducts.find(
+        (p) => p.barcode === code || p.productCode === code,
+      );
+      if (localMatch) {
+        const result = addToCartLogic(cartItems, localMatch);
+        if (result.alert) {
+          showAlert(result.alert.message);
+          showToast(result.alert.message, "error");
+          return;
+        }
+        setCartItems(result.items);
+        setAlertMessage(null);
+        showToast(`+1 ${localMatch.name}`, "success");
+        return;
+      }
+
+      // 3. Jika tidak langsung match ke 1 barcode produk, masukkan ke kolom search query
+      updateSearchQuery(code);
+      showToast(`Mencari produk dengan kode "${code}"...`, "info");
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Gagal memproses barcode.",
+        "error",
+      );
+    }
   }
 
   useEffect(() => {
@@ -889,21 +940,22 @@ export default function KasirPage() {
       <div className="grid h-[calc(100vh-130px)] min-h-0 grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[minmax(0,62%)_minmax(0,38%)]">
           {/* Kolom kiri: pencarian + tabel belanjaan */}
           <section className="flex min-h-0 flex-col gap-3">
-            <div className="relative shrink-0">
-              <SearchInput
-                id="kasir-search"
-                ref={searchInputRef}
-                autoFocus
-                value={searchQuery}
-                onKeyDown={handleSearchKeyDown}
-                onChange={(e) => updateSearchQuery(e.target.value)}
-                onClear={() => updateSearchQuery("")}
-                placeholder="Scan barcode atau ketik nama barang — Enter untuk tambah"
-                aria-expanded={showSearchDropdown}
-                aria-controls="search-autocomplete"
-                autoComplete="off"
-                className="[&_input]:py-3.5 [&_input]:text-base [&_input]:font-semibold"
-              />
+            <div className="relative shrink-0 flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <SearchInput
+                  id="kasir-search"
+                  ref={searchInputRef}
+                  autoFocus
+                  value={searchQuery}
+                  onKeyDown={handleSearchKeyDown}
+                  onChange={(e) => updateSearchQuery(e.target.value)}
+                  onClear={() => updateSearchQuery("")}
+                  placeholder="Scan barcode atau ketik nama barang — Enter untuk tambah"
+                  aria-expanded={showSearchDropdown}
+                  aria-controls="search-autocomplete"
+                  autoComplete="off"
+                  className="[&_input]:py-3.5 [&_input]:text-base [&_input]:font-semibold"
+                />
 
               {showSearchDropdown && (
                 <div
@@ -1011,6 +1063,31 @@ export default function KasirPage() {
                 </div>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-3.5 sm:px-4 py-3.5 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-500 active:scale-[0.98] shrink-0"
+              title="Buka kamera scan barcode HP"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="h-5 w-5"
+                aria-hidden
+              >
+                <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                <line x1="7" y1="12" x2="17" y2="12" />
+              </svg>
+              <span className="hidden sm:inline">Scan Barcode</span>
+            </button>
+          </div>
 
             <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
@@ -1405,6 +1482,15 @@ export default function KasirPage() {
         onClose={() => setIsCreditDebtModalOpen(false)}
         onConfirm={handleCreditDebtConfirm}
         onCustomerSelect={selectCustomer}
+      />
+
+      <BarcodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleBarcodeScanned}
+        title="Scan Barcode Produk"
+        description="Arahkan kamera HP ke barcode kemasan barang untuk menambah ke keranjang"
+        placeholderManual="Ketik barcode atau kode produk..."
       />
     </>
   );

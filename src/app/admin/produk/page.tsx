@@ -15,6 +15,7 @@ import {
   getProductExportFilename,
   parseImportedProducts,
 } from "@/lib/product-csv";
+import ProductBarcodeLabelModal from "@/src/components/ProductBarcodeLabelModal";
 import type { Product, ProductCategory } from "@/types/product";
 
 const CATEGORIES: ProductCategory[] = [
@@ -236,6 +237,26 @@ function SortableHeader({
   );
 }
 
+function IconBarcode({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden
+    >
+      <path d="M3 5v14" />
+      <path d="M8 5v14" />
+      <path d="M12 5v14" />
+      <path d="M17 5v14" />
+      <path d="M21 5v14" />
+    </svg>
+  );
+}
+
 function StockBadge({ stock }: { stock: number }) {
   if (stock <= LOW_STOCK_THRESHOLD) {
     return (
@@ -280,6 +301,7 @@ export default function AdminProdukPage() {
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false);
   const [clearConfirmText, setClearConfirmText] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [labelModalProduct, setLabelModalProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<
     ProductCategory | "all"
@@ -1017,6 +1039,15 @@ export default function AdminProdukPage() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
+                          onClick={() => setLabelModalProduct(product)}
+                          title="Cetak label barcode stiker"
+                          aria-label={`Cetak label barcode ${product.name}`}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600"
+                        >
+                          <IconBarcode className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => startEdit(product)}
                           title="Edit produk"
                           aria-label={`Edit ${product.name}`}
@@ -1177,7 +1208,7 @@ export default function AdminProdukPage() {
 
               <div>
                 <span className="block text-sm font-medium text-slate-700">
-                  Kode Barcode
+                  Barcode / Kode SKU
                 </span>
                 <div className="mt-1.5 flex gap-2">
                   <input
@@ -1186,20 +1217,33 @@ export default function AdminProdukPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, barcode: e.target.value }))
                     }
-                    placeholder="Contoh: 8991234567890"
+                    placeholder="Contoh: 8991234567890 atau SKU-001"
                     className={`${INPUT_CLASS} mt-0 min-w-0 flex-1`}
                   />
                   <button
                     type="button"
                     onClick={handleGenerateBarcode}
-                    className="mt-0 shrink-0 self-end rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                    className="mt-0 shrink-0 self-end rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                    title="Buat kode barcode acak unik otomatis"
                   >
-                    Generate Auto
+                    Generate Barcode
                   </button>
+                  {isEditMode && editingId && form.barcode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentProd = products.find((p) => p.id === editingId);
+                        if (currentProd) setLabelModalProduct(currentProd);
+                      }}
+                      className="mt-0 shrink-0 self-end rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100"
+                      title="Cetak label barcode untuk barang ini"
+                    >
+                      Cetak Label
+                    </button>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
-                  Digunakan untuk scan cepat di Kasir. Kosongkan jika tidak ada
-                  barcode fisik.
+                  Digunakan untuk scan cepat di kasir via scanner atau kamera HP. Klik &quot;Generate Barcode&quot; jika produk belum memiliki barcode fisik.
                 </p>
               </div>
 
@@ -1328,6 +1372,13 @@ export default function AdminProdukPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {labelModalProduct && (
+        <ProductBarcodeLabelModal
+          product={labelModalProduct}
+          onClose={() => setLabelModalProduct(null)}
+        />
       )}
     </div>
   );
