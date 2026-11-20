@@ -103,8 +103,9 @@ function generateDebtReceiptId(): string {
 }
 
 export default function DebtPage() {
-  const { debts, customers, transactions, payDebt, addDebt, addCustomer, addTransaction } = useApp();
+  const { debts, customers, transactions, payDebt, addDebt, addCustomer, addTransaction, currentUser } = useApp();
   const { showToast } = useToast();
+  const isAdmin = currentUser?.role === "admin";
 
   const [activeTab, setActiveTab] = useState<DebtTab>("list");
   const [searchQuery, setSearchQuery] = useState("");
@@ -440,13 +441,19 @@ export default function DebtPage() {
       {/* Main Content Area */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         {/* Key Metrics Overview Cards */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-xs">
-            <p className="text-xs font-medium text-amber-700">Total Piutang Berjalan</p>
-            <p className="mt-1 text-2xl font-bold text-amber-900 truncate">
-              {formatRupiah(stats.totalOutstanding)}
-            </p>
-          </div>
+        <div
+          className={`mb-6 grid grid-cols-2 gap-3 ${
+            isAdmin ? "sm:grid-cols-4" : "sm:grid-cols-2"
+          }`}
+        >
+          {isAdmin && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-xs">
+              <p className="text-xs font-medium text-amber-700">Total Piutang Berjalan</p>
+              <p className="mt-1 text-2xl font-bold text-amber-900 truncate">
+                {formatRupiah(stats.totalOutstanding)}
+              </p>
+            </div>
+          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <p className="text-xs font-medium text-slate-500">Jumlah Debitur</p>
             <p className="mt-1 text-2xl font-bold text-slate-800">{stats.debtorCount} orang</p>
@@ -455,12 +462,14 @@ export default function DebtPage() {
             <p className="text-xs font-medium text-red-700">Jatuh Tempo Minggu Ini</p>
             <p className="mt-1 text-2xl font-bold text-red-900">{stats.dueThisWeek} transaksi</p>
           </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-xs">
-            <p className="text-xs font-medium text-emerald-700">Total Piutang Terbayar</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-900 truncate">
-              {formatRupiah(stats.totalPaid)}
-            </p>
-          </div>
+          {isAdmin && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-xs">
+              <p className="text-xs font-medium text-emerald-700">Total Piutang Terbayar</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-900 truncate">
+                {formatRupiah(stats.totalPaid)}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* TAB 1: DAFTAR & RIWAYAT PIUTANG */}
@@ -850,25 +859,40 @@ export default function DebtPage() {
 
       {/* MODAL CATAT UTANG MANUAL */}
       {manualDebtModalOpen && (
-        <div className={MODAL_OVERLAY}>
-          <div className={`${MODAL_PANEL} max-w-lg`}>
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/75 backdrop-blur-sm overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-manual-debt-title"
+        >
+          {/* Backdrop click to close */}
+          <div
+            className="fixed inset-0"
+            aria-hidden="true"
+            onClick={() => setManualDebtModalOpen(false)}
+          />
+
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl my-auto flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 shrink-0 bg-slate-50/60">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
                   Input Utang
                 </p>
-                <h3 className="text-base font-bold text-slate-800">Catat Utang Baru</h3>
+                <h3 id="modal-manual-debt-title" className="text-base font-bold text-slate-800">
+                  Catat Utang Baru
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setManualDebtModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                aria-label="Tutup form utang"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleManualDebtSubmit} className="mt-4 space-y-4">
+            <form onSubmit={handleManualDebtSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
               <div>
                 <label className="text-xs font-semibold text-slate-700">Pilih Pelanggan Terdaftar</label>
                 <select
@@ -956,7 +980,7 @@ export default function DebtPage() {
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setManualDebtModalOpen(false)}
@@ -966,7 +990,7 @@ export default function DebtPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700"
+                  className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 active:scale-[0.98]"
                 >
                   Simpan Utang
                 </button>

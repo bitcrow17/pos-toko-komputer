@@ -84,7 +84,8 @@ export const STATUS_BADGE = {
 
 export const COMPLAINT_BADGE = STATUS_BADGE.complaint;
 
-export const MODAL_OVERLAY = "absolute inset-0 bg-slate-900/40 backdrop-blur-sm";
+export const MODAL_OVERLAY =
+  "fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/75 backdrop-blur-sm overflow-y-auto";
 
 export const MODAL_PANEL =
-  "relative z-10 w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl";
+  "relative z-10 w-full rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto my-auto";

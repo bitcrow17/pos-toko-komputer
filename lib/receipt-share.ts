@@ -5,6 +5,7 @@ export function toWhatsAppPhone(phone: string): string {
   if (!digits) return "";
   if (digits.startsWith("62")) return digits;
   if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  if (digits.startsWith("8")) return `62${digits}`;
   return digits;
 }
 
@@ -69,6 +70,72 @@ export function buildServiceReceiptShareText(input: {
     lines.push(`Total: ${formatReceiptRupiah(input.total)}`);
   }
   lines.push("", "Unduh PDF dari aplikasi untuk arsip tanpa kertas.");
+  return lines.join("\n");
+}
+
+export function buildServiceTicketWhatsAppMessage(input: {
+  storeName?: string;
+  ticketNo: string;
+  customerName: string;
+  deviceName: string;
+  complaint?: string;
+  status?: string;
+  costEstimate?: number;
+  totalCost?: number;
+  kind: "intake" | "pickup";
+  storePhone?: string;
+  storeAddress?: string;
+}): string {
+  const store = input.storeName || STORE_INFO.name || "Retail Komputer";
+  const title =
+    input.kind === "intake"
+      ? "TANDA TERIMA SERVIS MASUK"
+      : "BUKTI PENGAMBILAN & PELUNASAN SERVIS";
+
+  const lines: string[] = [
+    `*${store.toUpperCase()}*`,
+    `📋 *${title}*`,
+    "───────────────────────────────",
+    `• *No. Tiket*    : ${input.ticketNo}`,
+    `• *Pelanggan*   : ${input.customerName}`,
+    `• *Perangkat*   : ${input.deviceName}`,
+  ];
+
+  if (input.complaint?.trim()) {
+    lines.push(`• *Keluhan/Diagnosa*: ${input.complaint.trim()}`);
+  }
+
+  if (input.status?.trim()) {
+    lines.push(`• *Status*       : ${input.status.trim()}`);
+  }
+
+  if (input.kind === "intake" && input.costEstimate != null && input.costEstimate > 0) {
+    lines.push(`• *Estimasi Biaya*: ${formatReceiptRupiah(input.costEstimate)}`);
+  }
+
+  if (input.kind === "pickup" && input.totalCost != null) {
+    lines.push(`• *Total Biaya*  : ${formatReceiptRupiah(input.totalCost)}`);
+  }
+
+  lines.push("───────────────────────────────");
+  if (input.kind === "intake") {
+    lines.push(
+      "💡 *Catatan Pengambilan:*",
+      "Mohon simpan pesan WhatsApp ini atau bukti cetak/PDF sebagai tanda bukti sah saat mengambil unit servis.",
+    );
+  } else {
+    lines.push(
+      "✅ *Unit Berhasil Diambil:*",
+      "Terima kasih atas kepercayaan Anda. Mohon simpan bukti ini untuk kemudahan klaim garansi servis.",
+    );
+  }
+
+  if (input.storePhone || input.storeAddress) {
+    lines.push("");
+    if (input.storePhone) lines.push(`📞 Kontak/WA: ${input.storePhone}`);
+    if (input.storeAddress) lines.push(`📍 Alamat: ${input.storeAddress}`);
+  }
+
   return lines.join("\n");
 }
 

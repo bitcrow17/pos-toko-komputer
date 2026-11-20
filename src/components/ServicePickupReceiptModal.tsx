@@ -5,6 +5,11 @@ import type { ServiceTicket } from "@/types/service";
 import type { Transaction } from "@/types/transaction";
 import ServicePickupReceiptDocument from "./ServicePickupReceiptDocument";
 import type { ReceiptLayout } from "./ReceiptModal";
+import { useStoreSettings } from "@/src/context/StoreSettingsContext";
+import {
+  openWhatsAppShare,
+  buildServiceTicketWhatsAppMessage,
+} from "@/lib/receipt-share";
 
 interface ServicePickupReceiptModalProps {
   transaction: Transaction;
@@ -28,6 +33,40 @@ function PrinterIcon({ className }: { className?: string }) {
       <path d="M6 9V2h12v7" />
       <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
       <path d="M6 14h12v8H6z" />
+    </svg>
+  );
+}
+
+function DownloadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M12 15V3" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M21 21H3" />
+    </svg>
+  );
+}
+
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden
+    >
+      <path d="M20.5 3.5A11 11 0 0 0 2.1 17.4L1 23l5.8-1.1A11 11 0 0 0 12 23a11 11 0 0 0 8.5-19.5ZM12 21a9 9 0 0 1-4.6-1.3l-.3-.2-3.4.6.7-3.3-.2-.3A9 9 0 1 1 12 21Zm5-6.7c-.3-.1-1.6-.8-1.9-.9s-.4-.1-.6.1-.7.9-.8 1-.3.2-.6.1a7.4 7.4 0 0 1-2.2-1.4 8.2 8.2 0 0 1-1.5-1.9c-.2-.3 0-.4.1-.6l.4-.5.3-.4c.1-.2 0-.3 0-.4l-.9-2.1c-.2-.6-.5-.5-.6-.5h-.5c-.2 0-.4.1-.6.3s-.8.8-.8 1.9.8 2.2.9 2.3a10.4 10.4 0 0 0 4 3.4c.6.2 1 .4 1.4.3s1.3-.5 1.5-1 .3-.9.2-1c-.1-.1-.3-.2-.6-.3Z" />
     </svg>
   );
 }
@@ -99,6 +138,7 @@ export default function ServicePickupReceiptModal({
   ticket,
   onClose,
 }: ServicePickupReceiptModalProps) {
+  const { settings: store } = useStoreSettings();
   const [layout, setLayout] = useState<ReceiptLayout>("thermal");
 
   useEffect(() => {
@@ -128,6 +168,29 @@ export default function ServicePickupReceiptModal({
     document.documentElement.dataset.receiptLayout = layout;
     window.print();
   }, [layout]);
+
+  const handleSavePdf = useCallback(() => {
+    if (typeof window === "undefined") return;
+    setLayout("a4");
+    document.documentElement.dataset.receiptLayout = "a4";
+    window.setTimeout(() => window.print(), 80);
+  }, []);
+
+  const handleSendWhatsApp = useCallback(() => {
+    const message = buildServiceTicketWhatsAppMessage({
+      storeName: store.name,
+      storePhone: store.whatsapp || store.phoneNumber,
+      storeAddress: store.address,
+      ticketNo: ticket.ticketNo,
+      customerName: ticket.customerName,
+      deviceName: ticket.deviceName,
+      complaint: ticket.problem || ticket.workNotes,
+      status: "Selesai & Diambil",
+      totalCost: transaction.totalHarga,
+      kind: "pickup",
+    });
+    openWhatsAppShare(message, ticket.customerPhone);
+  }, [ticket, transaction, store]);
 
   return (
     <div
@@ -284,19 +347,43 @@ export default function ServicePickupReceiptModal({
           </div>
 
           <div className="p-5 border-t border-slate-800 bg-slate-950/60 space-y-2.5">
+            {/* Opsi Cetak & Simpan PDF */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={triggerPrint}
+                className="flex items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3 text-xs sm:text-sm font-semibold text-white shadow-md shadow-cyan-900/40 transition hover:bg-cyan-500 active:scale-[0.99]"
+                title="Cetak langsung struk pengambilan ke printer"
+              >
+                <PrinterIcon className="h-4 w-4" />
+                Cetak Struk
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePdf}
+                title="Pilih 'Simpan sebagai PDF' di jendela print browser"
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 py-3 text-xs sm:text-sm font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:bg-slate-700 active:scale-[0.99]"
+              >
+                <DownloadIcon className="h-4 w-4" />
+                Simpan PDF
+              </button>
+            </div>
+
+            {/* Tombol Kirim Bukti via WhatsApp */}
             <button
               type="button"
-              onClick={triggerPrint}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:bg-cyan-500 active:scale-[0.99]"
+              onClick={handleSendWhatsApp}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-xs sm:text-sm font-semibold text-white shadow-md shadow-emerald-900/40 transition hover:bg-emerald-500 active:scale-[0.99]"
+              title={`Kirim pesan bukti pengambilan servis ke WhatsApp ${ticket.customerPhone ? `(${ticket.customerPhone})` : 'pelanggan'}`}
             >
-              <PrinterIcon className="h-5 w-5" />
-              Cetak Struk Pengambilan
+              <WhatsAppIcon className="h-4 w-4" />
+              Kirim Bukti via WhatsApp
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-xl border border-slate-700/80 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              className="w-full rounded-xl border border-slate-700/80 py-2.5 text-xs sm:text-sm font-medium text-slate-400 transition hover:bg-slate-800 hover:text-white"
             >
               Tutup
             </button>

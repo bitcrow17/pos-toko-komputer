@@ -86,8 +86,10 @@ export default function ServicePage() {
     sendServiceToPartner,
     confirmServiceReturned,
     collectServicePayment,
+    currentUser,
   } = useApp();
   const { showToast } = useToast();
+  const isAdmin = currentUser?.role === "admin";
 
   const [activeTab, setActiveTab] = useState<ServiceTab>("list");
   const [searchQuery, setSearchQuery] = useState("");
@@ -475,7 +477,11 @@ export default function ServicePage() {
       {/* Main Content Area */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         {/* Metric Overview Cards */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        <div
+          className={`mb-6 grid grid-cols-2 gap-3 ${
+            isAdmin ? "sm:grid-cols-4 lg:grid-cols-5" : "sm:grid-cols-4"
+          }`}
+        >
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
             <p className="text-xs font-medium text-slate-500">Total Tiket</p>
             <p className="mt-1 text-2xl font-bold text-slate-800">{stats.total}</p>
@@ -492,12 +498,14 @@ export default function ServicePage() {
             <p className="text-xs font-medium text-red-700">Komplain / Garansi</p>
             <p className="mt-1 text-2xl font-bold text-red-900">{stats.complaints}</p>
           </div>
-          <div className="col-span-2 rounded-2xl border border-violet-200 bg-violet-50/40 p-4 shadow-xs sm:col-span-2 lg:col-span-1">
-            <p className="text-xs font-medium text-violet-700">Pendapatan Servis</p>
-            <p className="mt-1 text-lg font-bold text-violet-900 truncate">
-              {formatRupiah(stats.totalRevenue)}
-            </p>
-          </div>
+          {isAdmin && (
+            <div className="col-span-2 rounded-2xl border border-violet-200 bg-violet-50/40 p-4 shadow-xs sm:col-span-2 lg:col-span-1">
+              <p className="text-xs font-medium text-violet-700">Pendapatan Servis</p>
+              <p className="mt-1 text-lg font-bold text-violet-900 truncate">
+                {formatRupiah(stats.totalRevenue)}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* TAB 1: LIST TIKET SERVIS */}
