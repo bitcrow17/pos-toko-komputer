@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { generateRandomBarcode } from "@/lib/admin-product";
+import BarcodeScannerModal from "@/src/components/BarcodeScannerModal";
 import type { Product, ProductCategory } from "@/types/product";
 import { INPUT_CLASS, SELECT_CLASS } from "@/lib/ui-classes";
 
@@ -56,12 +57,18 @@ export default function QuickProductFormModal({
   const [stock, setStock] = useState("10");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   if (!isOpen) return null;
 
   function handleGenerateBarcode() {
     const generated = generateRandomBarcode(existingProducts);
     setBarcode(generated);
+  }
+
+  function handleBarcodeScanned(scannedCode: string) {
+    setBarcode(scannedCode.trim());
+    setIsScannerOpen(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -172,25 +179,48 @@ export default function QuickProductFormModal({
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
               Barcode / Kode SKU
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap sm:flex-nowrap gap-2">
               <input
                 type="text"
                 value={barcode}
                 onChange={(e) => setBarcode(e.target.value)}
                 placeholder="Scan barcode fisik atau klik generate..."
-                className={`${INPUT_CLASS} flex-1`}
+                className={`${INPUT_CLASS} min-w-0 flex-1`}
               />
               <button
                 type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-950/60 px-3 py-2 text-xs font-semibold text-indigo-300 transition hover:border-indigo-400 hover:bg-indigo-900/80 hover:text-white shrink-0 active:scale-[0.98]"
+                title="Scan barcode produk fisik menggunakan kamera HP"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="h-4 w-4"
+                  aria-hidden
+                >
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                  <line x1="7" y1="12" x2="17" y2="12" />
+                </svg>
+                <span>Scan Barcode</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleGenerateBarcode}
-                className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-indigo-400 hover:bg-slate-700 hover:text-white shrink-0"
+                className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-indigo-400 hover:bg-slate-700 hover:text-white shrink-0 active:scale-[0.98]"
                 title="Buat kode barcode acak otomatis"
               >
                 Generate Barcode
               </button>
             </div>
             <p className="mt-1 text-[11px] text-slate-500">
-              Dapat discan saat transaksi kasir. Kosongkan jika ingin sistem menggunakan ID barang.
+              Gunakan kamera HP atau scanner fisik untuk membaca barcode produk. Kosongkan jika ingin sistem menggunakan ID barang.
             </p>
           </div>
 
@@ -281,6 +311,15 @@ export default function QuickProductFormModal({
           </div>
         </form>
       </div>
+
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleBarcodeScanned}
+        title="Scan Barcode Produk"
+        description="Arahkan kamera ke barcode kemasan barang untuk mengisi otomatis"
+        placeholderManual="Ketik barcode produk manual..."
+      />
     </div>
   );
 }

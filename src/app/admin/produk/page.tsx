@@ -16,6 +16,7 @@ import {
   parseImportedProducts,
 } from "@/lib/product-csv";
 import ProductBarcodeLabelModal from "@/src/components/ProductBarcodeLabelModal";
+import BarcodeScannerModal from "@/src/components/BarcodeScannerModal";
 import type { Product, ProductCategory } from "@/types/product";
 
 const CATEGORIES: ProductCategory[] = [
@@ -302,6 +303,7 @@ export default function AdminProdukPage() {
   const [clearConfirmText, setClearConfirmText] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [labelModalProduct, setLabelModalProduct] = useState<Product | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<
     ProductCategory | "all"
@@ -511,6 +513,11 @@ export default function AdminProdukPage() {
       ? products.filter((p) => p.id !== editingId)
       : products;
     setForm((f) => ({ ...f, barcode: generateRandomBarcode(others) }));
+  }
+
+  function handleBarcodeScanned(scannedCode: string) {
+    setForm((f) => ({ ...f, barcode: scannedCode.trim() }));
+    setIsScannerOpen(false);
   }
 
   function handleDeleteProduct(id: string) {
@@ -1210,7 +1217,7 @@ export default function AdminProdukPage() {
                 <span className="block text-sm font-medium text-slate-700">
                   Barcode / Kode SKU
                 </span>
-                <div className="mt-1.5 flex gap-2">
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <input
                     type="text"
                     value={form.barcode}
@@ -1218,12 +1225,35 @@ export default function AdminProdukPage() {
                       setForm((f) => ({ ...f, barcode: e.target.value }))
                     }
                     placeholder="Contoh: 8991234567890 atau SKU-001"
-                    className={`${INPUT_CLASS} mt-0 min-w-0 flex-1`}
+                    className={`${INPUT_CLASS} mt-0 min-w-[200px] flex-1`}
                   />
                   <button
                     type="button"
+                    onClick={() => setIsScannerOpen(true)}
+                    className="mt-0 flex shrink-0 items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-400 hover:bg-indigo-100 active:scale-[0.98]"
+                    title="Scan barcode produk fisik menggunakan kamera HP / webcam"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="h-4 w-4"
+                      aria-hidden
+                    >
+                      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                      <line x1="7" y1="12" x2="17" y2="12" />
+                    </svg>
+                    <span>Scan Barcode</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleGenerateBarcode}
-                    className="mt-0 shrink-0 self-end rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                    className="mt-0 shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 active:scale-[0.98]"
                     title="Buat kode barcode acak unik otomatis"
                   >
                     Generate Barcode
@@ -1235,7 +1265,7 @@ export default function AdminProdukPage() {
                         const currentProd = products.find((p) => p.id === editingId);
                         if (currentProd) setLabelModalProduct(currentProd);
                       }}
-                      className="mt-0 shrink-0 self-end rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100"
+                      className="mt-0 shrink-0 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 active:scale-[0.98]"
                       title="Cetak label barcode untuk barang ini"
                     >
                       Cetak Label
@@ -1243,7 +1273,7 @@ export default function AdminProdukPage() {
                   )}
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
-                  Digunakan untuk scan cepat di kasir via scanner atau kamera HP. Klik &quot;Generate Barcode&quot; jika produk belum memiliki barcode fisik.
+                  Gunakan kamera HP atau scanner fisik untuk membaca barcode produk. Klik &quot;Generate Barcode&quot; jika produk belum memiliki barcode fisik.
                 </p>
               </div>
 
@@ -1380,6 +1410,15 @@ export default function AdminProdukPage() {
           onClose={() => setLabelModalProduct(null)}
         />
       )}
+
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleBarcodeScanned}
+        title="Scan Barcode Produk"
+        description="Arahkan kamera ke barcode kemasan barang untuk mengisi otomatis"
+        placeholderManual="Ketik barcode produk manual..."
+      />
     </div>
   );
 }
