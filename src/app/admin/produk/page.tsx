@@ -17,35 +17,14 @@ import {
 } from "@/lib/product-csv";
 import ProductBarcodeLabelModal from "@/src/components/ProductBarcodeLabelModal";
 import BarcodeScannerModal from "@/src/components/BarcodeScannerModal";
-import type { Product, ProductCategory } from "@/types/product";
-
-const CATEGORIES: ProductCategory[] = [
-  "laptop",
-  "desktop",
-  "monitor",
-  "keyboard",
-  "mouse",
-  "storage",
-  "ram",
-  "gpu",
-  "cpu",
-  "accessory",
-  "other",
-];
-
-const CATEGORY_LABELS: Record<ProductCategory, string> = {
-  laptop: "Laptop",
-  desktop: "Desktop",
-  monitor: "Monitor",
-  keyboard: "Keyboard",
-  mouse: "Mouse",
-  storage: "Storage",
-  ram: "RAM",
-  gpu: "GPU",
-  cpu: "CPU",
-  accessory: "Aksesoris",
-  other: "Lainnya",
-};
+import {
+  type Product,
+  type ProductCategory,
+  CATEGORIES,
+  CATEGORY_LABELS,
+  CATEGORY_GROUPS,
+  getCategoryLabel,
+} from "@/types/product";
 
 const LOW_STOCK_THRESHOLD = 5;
 const HIGH_STOCK_THRESHOLD = 20;
@@ -333,10 +312,12 @@ export default function AdminProdukPage() {
       }
       if (!q) return true;
       const code = formatCodeOrSerial(product).toLowerCase();
+      const catLabel = getCategoryLabel(product.category).toLowerCase();
       return (
         product.name.toLowerCase().includes(q) ||
         product.id.toLowerCase().includes(q) ||
         product.category.toLowerCase().includes(q) ||
+        catLabel.includes(q) ||
         (product.barcode?.toLowerCase().includes(q) ?? false) ||
         code.includes(q)
       );
@@ -859,13 +840,17 @@ export default function AdminProdukPage() {
                 onChange={(e) =>
                   setCategoryFilter(e.target.value as ProductCategory | "all")
                 }
-                className="mt-0 w-full min-w-[180px] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 lg:w-auto"
+                className="mt-0 w-full min-w-[200px] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 lg:w-auto"
               >
-                <option value="all">Semua Kategori</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat]}
-                  </option>
+                <option value="all">Semua Kategori ({products.length})</option>
+                {CATEGORY_GROUPS.map((grp) => (
+                  <optgroup key={grp.group} label={grp.group}>
+                    {grp.items.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {CATEGORY_LABELS[cat]}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>
@@ -1028,7 +1013,9 @@ export default function AdminProdukPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-slate-600">
-                      {CATEGORY_LABELS[product.category]}
+                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+                        {getCategoryLabel(product.category)}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <StockBadge stock={product.stock} />
@@ -1194,7 +1181,7 @@ export default function AdminProdukPage() {
               </label>
 
               <label className="block text-sm font-medium text-slate-700">
-                Kategori
+                Kategori Produk <span className="text-red-500">*</span>
                 <select
                   value={form.category}
                   onChange={(e) =>
@@ -1203,12 +1190,16 @@ export default function AdminProdukPage() {
                       category: e.target.value as ProductCategory,
                     }))
                   }
-                  className={INPUT_CLASS}
+                  className={`${INPUT_CLASS} mt-1`}
                 >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {CATEGORY_LABELS[cat]}
-                    </option>
+                  {CATEGORY_GROUPS.map((grp) => (
+                    <optgroup key={grp.group} label={grp.group}>
+                      {grp.items.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {CATEGORY_LABELS[cat]}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </label>

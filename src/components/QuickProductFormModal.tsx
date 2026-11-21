@@ -3,36 +3,14 @@
 import { useState } from "react";
 import { generateRandomBarcode } from "@/lib/admin-product";
 import BarcodeScannerModal from "@/src/components/BarcodeScannerModal";
-import type { Product, ProductCategory } from "@/types/product";
+import {
+  type Product,
+  type ProductCategory,
+  CATEGORIES,
+  CATEGORY_LABELS,
+  CATEGORY_GROUPS,
+} from "@/types/product";
 import { INPUT_CLASS, SELECT_CLASS } from "@/lib/ui-classes";
-
-const CATEGORIES: ProductCategory[] = [
-  "laptop",
-  "desktop",
-  "monitor",
-  "keyboard",
-  "mouse",
-  "storage",
-  "ram",
-  "gpu",
-  "cpu",
-  "accessory",
-  "other",
-];
-
-const CATEGORY_LABELS: Record<ProductCategory, string> = {
-  laptop: "Laptop",
-  desktop: "Desktop",
-  monitor: "Monitor",
-  keyboard: "Keyboard",
-  mouse: "Mouse",
-  storage: "Storage",
-  ram: "RAM",
-  gpu: "GPU",
-  cpu: "CPU",
-  accessory: "Aksesoris",
-  other: "Lainnya",
-};
 
 interface QuickProductFormModalProps {
   isOpen: boolean;
@@ -235,10 +213,14 @@ export default function QuickProductFormModal({
                 onChange={(e) => setCategory(e.target.value as ProductCategory)}
                 className={`${SELECT_CLASS} w-full`}
               >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat]}
-                  </option>
+                {CATEGORY_GROUPS.map((grp) => (
+                  <optgroup key={grp.group} label={grp.group}>
+                    {grp.items.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {CATEGORY_LABELS[cat]}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>

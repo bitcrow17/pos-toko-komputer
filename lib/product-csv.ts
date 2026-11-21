@@ -2,7 +2,7 @@ import {
   createNextBrgCode,
   generateRandomBarcode,
 } from "@/lib/admin-product";
-import type { Product, ProductCategory } from "@/types/product";
+import { type Product, type ProductCategory, CATEGORIES } from "@/types/product";
 
 type ProductInput = Omit<Product, "id">;
 
@@ -16,19 +16,7 @@ export const CSV_HEADERS = [
   "Minimum Stok",
 ] as const;
 
-const VALID_CATEGORIES = new Set<ProductCategory>([
-  "laptop",
-  "desktop",
-  "monitor",
-  "keyboard",
-  "mouse",
-  "storage",
-  "ram",
-  "gpu",
-  "cpu",
-  "accessory",
-  "other",
-]);
+const VALID_CATEGORIES = new Set<ProductCategory>(CATEGORIES);
 
 const HEADER_KEYS: Record<string, keyof CsvRowShape> = {
   barcode: "barcode",
@@ -113,6 +101,50 @@ function normalizeCategory(raw: string): ProductCategory {
   if (VALID_CATEGORIES.has(value as ProductCategory)) {
     return value as ProductCategory;
   }
+
+  // Pemetaan nama/sinonim Bahasa Indonesia ke kode ProductCategory
+  const aliases: Record<string, ProductCategory> = {
+    "tinta": "ink_toner",
+    "toner": "ink_toner",
+    "tinta & toner": "ink_toner",
+    "tinta dan toner": "ink_toner",
+    "printer": "printer_scanner",
+    "scanner": "printer_scanner",
+    "printer & scanner": "printer_scanner",
+    "printer dan scanner": "printer_scanner",
+    "komponen": "component",
+    "komponen pc": "component",
+    "komponen pc / laptop": "component",
+    "komponen laptop": "component",
+    "sparepart": "component",
+    "spare part": "component",
+    "kabel": "cable_connector",
+    "konektor": "cable_connector",
+    "kabel & konektor": "cable_connector",
+    "cable": "cable_connector",
+    "jaringan": "networking",
+    "jaringan (networking)": "networking",
+    "network": "networking",
+    "networking": "networking",
+    "lan": "networking",
+    "wifi": "networking",
+    "cctv": "cctv_security",
+    "cctv & keamanan": "cctv_security",
+    "keamanan": "cctv_security",
+    "security": "cctv_security",
+    "aksesoris": "accessory",
+    "accessories": "accessory",
+    "jasa": "service_fee",
+    "servis": "service_fee",
+    "jasa / servis": "service_fee",
+    "service": "service_fee",
+    "jasa servis": "service_fee",
+  };
+
+  if (aliases[value]) {
+    return aliases[value];
+  }
+
   return "other";
 }
 

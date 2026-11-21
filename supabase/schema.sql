@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  -- Kategori produk: ink_toner, printer_scanner, laptop, desktop, monitor, component, storage, ram, gpu, cpu, networking, cctv_security, accessory, cable_connector, keyboard, mouse, service_fee, other
   category TEXT NOT NULL DEFAULT 'other',
   purchase_price NUMERIC NOT NULL DEFAULT 0,
   selling_price NUMERIC NOT NULL DEFAULT 0,

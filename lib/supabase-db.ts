@@ -65,7 +65,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
     .select("*")
-    .or(`name.ilike.${pattern},barcode.ilike.${pattern}`)
+    .or(`name.ilike.${pattern},barcode.ilike.${pattern},category.ilike.${pattern}`)
     .order("name", { ascending: true })
     .limit(50);
 
