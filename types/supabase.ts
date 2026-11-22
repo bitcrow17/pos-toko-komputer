@@ -114,3 +114,48 @@ export interface DbService {
   created_at: string;
   updated_at: string;
 }
+
+/** Baris tabel `purchases` di Supabase */
+export interface DbPurchase {
+  id: string;
+  invoice_number?: string | null;
+  supplier_name?: string | null;
+  purchase_date: string;
+  total_amount: number;
+  total_items: number;
+  notes?: string | null;
+  status: "completed" | "void";
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Baris tabel `purchase_items` di Supabase */
+export interface DbPurchaseItem {
+  id?: string;
+  purchase_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  purchase_price: number;
+  subtotal: number;
+  update_selling_price: boolean;
+  new_selling_price?: number | null;
+  prev_stock?: number;
+  prev_purchase_price?: number;
+  created_at?: string;
+}
+
+/** Baris tabel `stock_mutations` di Supabase */
+export interface DbStockMutation {
+  id?: string;
+  product_id: string;
+  mutation_type: string;
+  reference_type: string;
+  reference_id: string;
+  quantity_change: number;
+  stock_before: number;
+  stock_after: number;
+  notes?: string | null;
+  created_at?: string;
+}

@@ -3,7 +3,10 @@ import {
   mapDbCustomer,
   mapDbPartner,
   mapDbProduct,
+  mapDbPurchase,
+  mapDbPurchaseItem,
   mapDbService,
+  mapDbStockMutation,
   mapDbTransaction,
   mapDbTransactionItem,
   mapCustomerToDb,
@@ -20,10 +23,19 @@ import type { Transaction, TransactionItem } from "@/types/transaction";
 import type { Debt } from "@/types/debt";
 import type { Partner, ServiceTicket } from "@/types/service";
 import type {
+  Purchase,
+  PurchaseInput,
+  PurchaseItem,
+  StockMutation,
+} from "@/types/purchase";
+import type {
   DbCustomer,
   DbPartner,
   DbProduct,
+  DbPurchase,
+  DbPurchaseItem,
   DbService,
+  DbStockMutation,
   DbTransaction,
   DbTransactionItem,
 } from "@/types/supabase";
@@ -530,4 +542,374 @@ export async function getNextServiceTicketNo(): Promise<string> {
 
   const nextSeq = maxSeq + 1;
   return `${datePrefix}-${String(nextSeq).padStart(3, "0")}`;
+}
+
+// ==============================================================================
+// MODUL PEMBELIAN / KULAKAN (PURCHASES) & MUTASI STOK
+// ==============================================================================
+
+type DbPurchaseWithItems = DbPurchase & {
+  purchase_items?: DbPurchaseItem[] | null;
+};
+
+/** Generate nomor ID transaksi pembelian format PUR-YYYYMMDD-001 */
+export async function generatePurchaseIdFromDb(): Promise<string> {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const datePrefix = `PUR-${yyyy}${mm}${dd}`;
+
+  try {
+    const { data, error } = await supabase
+      .from("purchases")
+      .select("id")
+      .like("id", `${datePrefix}-%`);
+
+    if (error) {
+      console.warn("generatePurchaseIdFromDb: query failed, using timestamp fallback", error.message);
+      return `${datePrefix}-${Date.now().toString().slice(-4)}`;
+    }
+
+    let maxSeq = 0;
+    if (data && data.length > 0) {
+      for (const row of data) {
+        const id = row.id as string | null;
+        const match = id?.match(/^PUR-\d{8}-(\d+)$/);
+        if (match) {
+          const seq = parseInt(match[1], 10);
+          if (!isNaN(seq) && seq > maxSeq) {
+            maxSeq = seq;
+          }
+        }
+      }
+    }
+
+    const nextSeq = maxSeq + 1;
+    return `${datePrefix}-${String(nextSeq).padStart(3, "0")}`;
+  } catch {
+    return `${datePrefix}-${Date.now().toString().slice(-4)}`;
+  }
+}
+
+/** Ambil seluruh data pembelian beserta item barang */
+export async function fetchPurchases(): Promise<Purchase[]> {
+  const { data, error } = await supabase
+    .from("purchases")
+    .select("*, purchase_items(*)")
+    .order("created_at", { ascending: false });
+
+  throwIfError(error, "Gagal memuat riwayat pembelian");
+
+  return ((data as DbPurchaseWithItems[]) ?? []).map((row) => {
+    const items = (row.purchase_items ?? []).map(mapDbPurchaseItem);
+    return mapDbPurchase(row, items);
+  });
+}
+
+/** Ambil 1 data pembelian berdasarkan ID */
+export async function fetchPurchaseById(id: string): Promise<Purchase | null> {
+  const { data, error } = await supabase
+    .from("purchases")
+    .select("*, purchase_items(*)")
+    .eq("id", id)
+    .single();
+
+  if (error || !data) return null;
+  const row = data as DbPurchaseWithItems;
+  const items = (row.purchase_items ?? []).map(mapDbPurchaseItem);
+  return mapDbPurchase(row, items);
+}
+
+/** Simpan transaksi pembelian baru secara atomik (via RPC Supabase) */
+export async function createPurchaseTransaction(
+  input: PurchaseInput,
+): Promise<{ success: boolean; purchaseId: string; message: string }> {
+  if (!input.items || input.items.length === 0) {
+    throw new Error("Daftar barang pembelian tidak boleh kosong.");
+  }
+
+  const purchaseId = input.id || (await generatePurchaseIdFromDb());
+  const totalAmount = input.items.reduce(
+    (sum, item) => sum + item.quantity * item.purchasePrice,
+    0,
+  );
+  const totalItems = input.items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Format payload item untuk RPC
+  const itemsPayload = input.items.map((item) => ({
+    product_id: item.productId,
+    product_name: item.productName,
+    quantity: item.quantity,
+    purchase_price: item.purchasePrice,
+    update_selling_price: Boolean(item.updateSellingPrice),
+    new_selling_price: item.updateSellingPrice ? (item.newSellingPrice ?? null) : null,
+  }));
+
+  // Panggil RPC atomik di Supabase
+  const { data, error } = await supabase.rpc("create_purchase_transaction", {
+    p_purchase_id: purchaseId,
+    p_invoice_number: input.invoiceNumber?.trim() || null,
+    p_supplier_name: input.supplierName?.trim() || null,
+    p_purchase_date: input.purchaseDate || new Date().toISOString().split("T")[0],
+    p_total_amount: totalAmount,
+    p_total_items: totalItems,
+    p_notes: input.notes?.trim() || null,
+    p_created_by: input.createdBy?.trim() || "admin",
+    p_items: itemsPayload,
+  });
+
+  if (error) {
+    // Jika RPC belum dieksekusi di database Supabase user (misal function 42883 not found), fallback aman
+    if (error.code === "42883" || error.message.includes("does not exist")) {
+      console.warn("RPC create_purchase_transaction belum ada di database, menjalankan fallback client-side...");
+      return await clientSideCreatePurchaseFallback(purchaseId, input, totalAmount, totalItems);
+    }
+    throw new Error(`Gagal menyimpan pembelian: ${error.message}`);
+  }
+
+  const res = data as { success?: boolean; purchase_id?: string; message?: string } | null;
+  return {
+    success: true,
+    purchaseId: res?.purchase_id || purchaseId,
+    message: res?.message || "Transaksi pembelian berhasil disimpan",
+  };
+}
+
+/** Batalkan (void) transaksi pembelian secara atomik */
+export async function voidPurchaseTransaction(
+  purchaseId: string,
+  voidReason?: string,
+  voidedBy?: string,
+): Promise<{ success: boolean; purchaseId: string; message: string }> {
+  const { data, error } = await supabase.rpc("void_purchase_transaction", {
+    p_purchase_id: purchaseId,
+    p_void_reason: voidReason?.trim() || "Dibatalkan oleh pengguna",
+    p_voided_by: voidedBy?.trim() || "admin",
+  });
+
+  if (error) {
+    if (error.code === "42883" || error.message.includes("does not exist")) {
+      console.warn("RPC void_purchase_transaction belum ada di database, menjalankan fallback client-side...");
+      return await clientSideVoidPurchaseFallback(purchaseId, voidReason, voidedBy);
+    }
+    // Pesan error dari RAISE EXCEPTION PostgreSQL (misal stok tidak mencukupi)
+    throw new Error(error.message);
+  }
+
+  const res = data as { success?: boolean; purchase_id?: string; message?: string } | null;
+  return {
+    success: true,
+    purchaseId: res?.purchase_id || purchaseId,
+    message: res?.message || "Pembelian berhasil dibatalkan (void)",
+  };
+}
+
+/** Ambil riwayat mutasi stok */
+export async function fetchStockMutations(
+  productId?: string,
+): Promise<StockMutation[]> {
+  let query = supabase
+    .from("stock_mutations")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (productId) {
+    query = query.eq("product_id", productId);
+  }
+
+  const { data, error } = await query.limit(100);
+  throwIfError(error, "Gagal memuat log mutasi stok");
+
+  return ((data as DbStockMutation[]) ?? []).map(mapDbStockMutation);
+}
+
+// Fallback jika database belum menjalankan SQL RPC
+async function clientSideCreatePurchaseFallback(
+  purchaseId: string,
+  input: PurchaseInput,
+  totalAmount: number,
+  totalItems: number,
+) {
+  const now = new Date().toISOString();
+  const purchaseDate = input.purchaseDate || now.split("T")[0];
+
+  // 1. Simpan header
+  const { error: headerErr } = await supabase.from("purchases").insert({
+    id: purchaseId,
+    invoice_number: input.invoiceNumber?.trim() || null,
+    supplier_name: input.supplierName?.trim() || null,
+    purchase_date: purchaseDate,
+    total_amount: totalAmount,
+    total_items: totalItems,
+    notes: input.notes?.trim() || null,
+    status: "completed",
+    created_by: input.createdBy?.trim() || "admin",
+    created_at: now,
+    updated_at: now,
+  });
+  throwIfError(headerErr, "Gagal menyimpan header pembelian");
+
+  // 2. Loop update item & product
+  for (const item of input.items) {
+    // Ambil data produk lama
+    const { data: prodData, error: prodErr } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", item.productId)
+      .single();
+    throwIfError(prodErr, `Produk ${item.productName} tidak ditemukan`);
+
+    const oldStock = Number(prodData.stock) || 0;
+    const oldCost = Number(prodData.purchase_price) || 0;
+    const newQty = item.quantity;
+    const newPrice = item.purchasePrice;
+
+    // Weighted average
+    let newAvgCost: number;
+    if (oldStock <= 0) {
+      newAvgCost = newPrice;
+    } else {
+      newAvgCost = Math.round(
+        (((oldStock * oldCost) + (newQty * newPrice)) / (oldStock + newQty)) * 100,
+      ) / 100;
+    }
+
+    const newStock = oldStock + newQty;
+
+    // Update produk
+    const updatePayload: Record<string, unknown> = {
+      stock: newStock,
+      purchase_price: newAvgCost,
+    };
+    if (item.updateSellingPrice && item.newSellingPrice && item.newSellingPrice > 0) {
+      updatePayload.selling_price = item.newSellingPrice;
+    }
+
+    const { error: updErr } = await supabase
+      .from("products")
+      .update(updatePayload)
+      .eq("id", item.productId);
+    throwIfError(updErr, `Gagal mengupdate stok & harga produk ${item.productName}`);
+
+    // Insert purchase_item
+    await supabase.from("purchase_items").insert({
+      purchase_id: purchaseId,
+      product_id: item.productId,
+      product_name: item.productName,
+      quantity: newQty,
+      purchase_price: newPrice,
+      subtotal: newQty * newPrice,
+      update_selling_price: Boolean(item.updateSellingPrice),
+      new_selling_price: item.updateSellingPrice ? (item.newSellingPrice ?? null) : null,
+      prev_stock: oldStock,
+      prev_purchase_price: oldCost,
+      created_at: now,
+    });
+
+    // Insert mutation
+    await supabase.from("stock_mutations").insert({
+      product_id: item.productId,
+      mutation_type: "PURCHASE",
+      reference_type: "purchases",
+      reference_id: purchaseId,
+      quantity_change: newQty,
+      stock_before: oldStock,
+      stock_after: newStock,
+      notes: `Pembelian No: ${purchaseId} (${input.supplierName || "Supplier"})`,
+      created_at: now,
+    });
+  }
+
+  return {
+    success: true,
+    purchaseId,
+    message: "Transaksi pembelian kulakan berhasil disimpan",
+  };
+}
+
+async function clientSideVoidPurchaseFallback(
+  purchaseId: string,
+  voidReason?: string,
+  voidedBy?: string,
+) {
+  // 1. Ambil data purchase beserta item
+  const { data: purchaseData, error: purErr } = await supabase
+    .from("purchases")
+    .select("*, purchase_items(*)")
+    .eq("id", purchaseId)
+    .single();
+  throwIfError(purErr, "Pembelian tidak ditemukan");
+
+  if (purchaseData.status === "void") {
+    throw new Error(`Transaksi pembelian "${purchaseId}" sudah dibatalkan sebelumnya (sudah void)`);
+  }
+
+  const items = purchaseData.purchase_items as DbPurchaseItem[] || [];
+
+  // 2. Validasi stok semua item terlebih dahulu
+  for (const item of items) {
+    const { data: prodData, error: prodErr } = await supabase
+      .from("products")
+      .select("id, name, stock")
+      .eq("id", item.product_id)
+      .single();
+    throwIfError(prodErr, `Produk ${item.product_name} tidak ditemukan`);
+    if (!prodData) {
+      throw new Error(`Produk ${item.product_name} tidak ditemukan`);
+    }
+
+    const currentStock = Number(prodData.stock) || 0;
+    if (currentStock < item.quantity) {
+      throw new Error(
+        `Gagal membatalkan pembelian: Stok produk "${prodData.name}" tidak mencukupi untuk dikurangi. Stok saat ini: ${currentStock}, yang harus dikurangi: ${item.quantity}`,
+      );
+    }
+  }
+
+  // 3. Kurangi stok dan catat mutasi
+  const now = new Date().toISOString();
+  for (const item of items) {
+    const { data: prodData } = await supabase
+      .from("products")
+      .select("stock")
+      .eq("id", item.product_id)
+      .single();
+
+    const currentStock = Number(prodData?.stock) || 0;
+    const newStock = currentStock - item.quantity;
+
+    await supabase
+      .from("products")
+      .update({ stock: newStock })
+      .eq("id", item.product_id);
+
+    await supabase.from("stock_mutations").insert({
+      product_id: item.product_id,
+      mutation_type: "PURCHASE_VOID",
+      reference_type: "purchases",
+      reference_id: purchaseId,
+      quantity_change: -item.quantity,
+      stock_before: currentStock,
+      stock_after: newStock,
+      notes: `Pembatalan (Void) Pembelian: ${purchaseId} - ${voidReason || "Dibatalkan"} (oleh ${voidedBy || "admin"})`,
+      created_at: now,
+    });
+  }
+
+  // 4. Update status purchase ke void
+  const existingNotes = purchaseData.notes || "";
+  const voidNote = `[VOID]: ${voidReason || "Dibatalkan"}`;
+  const updatedNotes = existingNotes ? `${existingNotes}\n${voidNote}` : voidNote;
+
+  await supabase
+    .from("purchases")
+    .update({ status: "void", notes: updatedNotes, updated_at: now })
+    .eq("id", purchaseId);
+
+  return {
+    success: true,
+    purchaseId,
+    message: "Transaksi pembelian berhasil dibatalkan (void)",
+  };
 }

@@ -21,8 +21,11 @@ import {
   fetchCustomers,
   fetchPartners,
   fetchProducts,
+  fetchPurchases,
   fetchServices,
   fetchTransactions,
+  createPurchaseTransaction,
+  voidPurchaseTransaction,
   generateServicePaymentInvoiceNumberFromDb,
   insertPartner as insertPartnerToDb,
   insertProduct as insertProductToDb,
@@ -43,6 +46,7 @@ import type { Product } from "@/types/product";
 import type { Transaction } from "@/types/transaction";
 import type { Customer, CustomerInput } from "@/types/customer";
 import type { Debt, DebtInput, DebtPaymentLog, DebtStatus } from "@/types/debt";
+import type { Purchase, PurchaseInput } from "@/types/purchase";
 import {
   buildDebtFromInput,
   computeDebtStatus,
@@ -80,6 +84,7 @@ export type {
   ServiceTicket,
   ServiceTicketInput,
 };
+export type { Purchase, PurchaseInput };
 
 export type ProductInput = Omit<Product, "id">;
 
@@ -113,6 +118,17 @@ export interface AppContextValue {
   customersLoading: boolean;
   customersError: string | null;
   refreshCustomers: () => Promise<void>;
+  purchases: Purchase[];
+  purchasesLoading: boolean;
+  purchasesError: string | null;
+  refreshPurchases: () => Promise<void>;
+  recordPurchase: (
+    input: PurchaseInput,
+  ) => Promise<{ success: boolean; purchaseId: string; message: string }>;
+  cancelPurchase: (
+    purchaseId: string,
+    reason?: string,
+  ) => Promise<{ success: boolean; purchaseId: string; message: string }>;
   currentUser: CurrentUser | null;
   login: (username: string, password: string) => boolean;
   logout: () => void;
@@ -204,6 +220,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesError, setServicesError] = useState<string | null>(null);
   const servicesRef = useRef<ServiceTicket[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(true);
+  const [purchasesError, setPurchasesError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const refreshProducts = useCallback(async () => {
@@ -304,6 +323,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshTransactions();
   }, [refreshTransactions]);
+
+  const refreshPurchases = useCallback(async () => {
+    setPurchasesLoading(true);
+    setPurchasesError(null);
+    try {
+      const loaded = await fetchPurchases();
+      setPurchases(loaded);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Gagal memuat data pembelian.";
+      setPurchasesError(message);
+    } finally {
+      setPurchasesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPurchases();
+  }, [refreshPurchases]);
+
+  const recordPurchase = useCallback(
+    async (
+      input: PurchaseInput,
+    ): Promise<{ success: boolean; purchaseId: string; message: string }> => {
+      const created = await createPurchaseTransaction(input);
+      await Promise.all([refreshPurchases(), refreshProducts()]);
+      return created;
+    },
+    [refreshPurchases, refreshProducts],
+  );
+
+  const cancelPurchase = useCallback(
+    async (
+      purchaseId: string,
+      reason?: string,
+    ): Promise<{ success: boolean; purchaseId: string; message: string }> => {
+      const voided = await voidPurchaseTransaction(purchaseId, reason);
+      await Promise.all([refreshPurchases(), refreshProducts()]);
+      return voided;
+    },
+    [refreshPurchases, refreshProducts],
+  );
 
   useEffect(() => {
     transactionsRef.current = transactions;
@@ -1084,6 +1145,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sendServiceReturnToStore,
       confirmServiceReturned,
       collectServicePayment,
+      purchases,
+      purchasesLoading,
+      purchasesError,
+      refreshPurchases,
+      recordPurchase,
+      cancelPurchase,
     }),
     [
       products,
@@ -1099,6 +1166,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       customersLoading,
       customersError,
       refreshCustomers,
+      purchases,
+      purchasesLoading,
+      purchasesError,
+      refreshPurchases,
+      recordPurchase,
+      cancelPurchase,
       currentUser,
       login,
       logout,

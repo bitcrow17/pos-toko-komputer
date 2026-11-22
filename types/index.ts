@@ -9,6 +9,14 @@ export type {
   DebtSettlementMethod,
 } from "./debt-payment";
 export type { UserLevel, User } from "./user";
+export type {
+  PurchaseStatus,
+  PurchaseItem,
+  PurchaseItemInput,
+  Purchase,
+  PurchaseInput,
+  StockMutation,
+} from "./purchase";
 export {
   getCartItemSubtotal,
   getCartTotal,

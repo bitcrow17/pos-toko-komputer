@@ -4,12 +4,16 @@ import { parseServiceAccessories } from "@/lib/service";
 import type { Product } from "@/types/product";
 import type { Transaction, TransactionItem } from "@/types/transaction";
 import type { Debt, DebtPaymentLog } from "@/types/debt";
+import type { Purchase, PurchaseItem, StockMutation } from "@/types/purchase";
 import type {
   DbCustomer,
   DbDebt,
   DbPartner,
   DbProduct,
+  DbPurchase,
+  DbPurchaseItem,
   DbService,
+  DbStockMutation,
   DbTransaction,
   DbTransactionItem,
 } from "@/types/supabase";
@@ -260,5 +264,57 @@ export function mapServiceToDb(ticket: ServiceTicket): DbService {
     status: ticket.status,
     created_at: ticket.createdAt,
     updated_at: ticket.updatedAt,
+  };
+}
+
+export function mapDbPurchaseItem(row: DbPurchaseItem): PurchaseItem {
+  return {
+    id: row.id,
+    purchaseId: row.purchase_id,
+    productId: row.product_id,
+    productName: row.product_name,
+    quantity: Number(row.quantity),
+    purchasePrice: Number(row.purchase_price),
+    subtotal: Number(row.subtotal),
+    updateSellingPrice: Boolean(row.update_selling_price),
+    newSellingPrice: row.new_selling_price != null ? Number(row.new_selling_price) : undefined,
+    prevStock: row.prev_stock != null ? Number(row.prev_stock) : undefined,
+    prevPurchasePrice: row.prev_purchase_price != null ? Number(row.prev_purchase_price) : undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapDbPurchase(
+  row: DbPurchase,
+  items?: PurchaseItem[],
+): Purchase {
+  return {
+    id: row.id,
+    invoiceNumber: row.invoice_number ?? undefined,
+    supplierName: row.supplier_name ?? undefined,
+    purchaseDate: row.purchase_date,
+    totalAmount: Number(row.total_amount),
+    totalItems: Number(row.total_items),
+    notes: row.notes ?? undefined,
+    status: row.status,
+    createdBy: row.created_by ?? undefined,
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? undefined,
+    items,
+  };
+}
+
+export function mapDbStockMutation(row: DbStockMutation): StockMutation {
+  return {
+    id: row.id ?? "",
+    productId: row.product_id,
+    mutationType: row.mutation_type as StockMutation["mutationType"],
+    referenceType: row.reference_type,
+    referenceId: row.reference_id,
+    quantityChange: Number(row.quantity_change),
+    stockBefore: Number(row.stock_before),
+    stockAfter: Number(row.stock_after),
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at ?? new Date().toISOString(),
   };
 }
