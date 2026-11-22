@@ -9,7 +9,6 @@ import {
   SERVICE_STATUS_BADGE,
   SERVICE_STATUS_LABEL,
 } from "@/lib/service";
-import { INPUT_CLASS, TABLE_BODY_CLASS, TABLE_CLASS, TABLE_HEAD_CLASS, TABLE_WRAPPER_CLASS } from "@/lib/ui-classes";
 import ComplaintBadge from "@/src/components/ui/ComplaintBadge";
 import { useApp } from "@/src/context/AppContext";
 import type { ServiceTicket } from "@/types/service";
@@ -26,13 +25,15 @@ function formatRupiah(value: number): string {
 }
 
 function formatTimestamp(iso: string): string {
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(iso));
+  try {
+    return new Intl.DateTimeFormat("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
 }
-
-const INPUT_CLASS_LOCAL = INPUT_CLASS;
 
 function parseRupiahInput(value: string): number {
   const digits = value.replace(/\D/g, "");
@@ -42,6 +43,13 @@ function parseRupiahInput(value: string): number {
 function ComplaintBadgeLocal() {
   return <ComplaintBadge label="Unit Komplain / Garansi" />;
 }
+
+type PartnerFilterStatus =
+  | "ALL"
+  | "IN_TRANSIT"
+  | "RECEIVED_BY_PARTNER"
+  | "REPAIRED"
+  | "COMPLAINT";
 
 function PartnerServicesContent() {
   const searchParams = useSearchParams();
@@ -59,13 +67,15 @@ function PartnerServicesContent() {
   } = useApp();
 
   const [activePartnerId, setActivePartnerId] = useState("");
-  const [feeModalTicket, setFeeModalTicket] = useState<ServiceTicket | null>(
-    null,
-  );
+  const [feeModalTicket, setFeeModalTicket] = useState<ServiceTicket | null>(null);
   const [partnerFeeInput, setPartnerFeeInput] = useState("");
   const [diagnosisNote, setDiagnosisNote] = useState("");
   const [markRepaired, setMarkRepaired] = useState(false);
   const [markComplaintReturn, setMarkComplaintReturn] = useState(false);
+
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<PartnerFilterStatus>("ALL");
 
   useEffect(() => {
     const fromUrl = searchParams.get("partnerId")?.trim();
@@ -85,6 +95,7 @@ function PartnerServicesContent() {
     [partners, activePartnerId],
   );
 
+  // All tickets belonging to this partner
   const partnerTickets = useMemo(() => {
     if (!activePartnerId) return [];
     return services
@@ -99,6 +110,79 @@ function PartnerServicesContent() {
       );
   }, [services, activePartnerId]);
 
+  // Statistics for badges & metrics
+  const filterCounts = useMemo(() => {
+    let inTransit = 0;
+    let received = 0;
+    let repaired = 0;
+    let complaint = 0;
+
+    for (const t of partnerTickets) {
+      if (t.isComplaint || t.status === "COMPLAINT" || t.partnerStatus === "COMPLAINT_RETURN") {
+        complaint++;
+      }
+      if (t.partnerStatus === "IN_TRANSIT") inTransit++;
+      if (t.partnerStatus === "RECEIVED_BY_PARTNER") received++;
+      if (t.partnerStatus === "REPAIRED") repaired++;
+    }
+
+    return {
+      all: partnerTickets.length,
+      inTransit,
+      received,
+      repaired,
+      complaint,
+    };
+  }, [partnerTickets]);
+
+  // Filtered tickets based on search query & status filter
+  const filteredTickets = useMemo(() => {
+    return partnerTickets.filter((ticket) => {
+      // Status Filter
+      if (statusFilter === "IN_TRANSIT" && ticket.partnerStatus !== "IN_TRANSIT") {
+        return false;
+      }
+      if (
+        statusFilter === "RECEIVED_BY_PARTNER" &&
+        ticket.partnerStatus !== "RECEIVED_BY_PARTNER"
+      ) {
+        return false;
+      }
+      if (statusFilter === "REPAIRED" && ticket.partnerStatus !== "REPAIRED") {
+        return false;
+      }
+      if (
+        statusFilter === "COMPLAINT" &&
+        !ticket.isComplaint &&
+        ticket.status !== "COMPLAINT" &&
+        ticket.partnerStatus !== "COMPLAINT_RETURN"
+      ) {
+        return false;
+      }
+
+      // Search Query Filter
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const matchDevice = ticket.deviceName.toLowerCase().includes(q);
+      const matchTicketNo = ticket.ticketNo.toLowerCase().includes(q);
+      const matchCustomer = ticket.customerName.toLowerCase().includes(q);
+      const matchPhone = ticket.customerPhone.toLowerCase().includes(q);
+      const matchSerial = ticket.serialNumber?.toLowerCase().includes(q) ?? false;
+      const matchProblem = ticket.problem.toLowerCase().includes(q);
+      const matchNotes = ticket.workNotes?.toLowerCase().includes(q) ?? false;
+
+      return (
+        matchDevice ||
+        matchTicketNo ||
+        matchCustomer ||
+        matchPhone ||
+        matchSerial ||
+        matchProblem ||
+        matchNotes
+      );
+    });
+  }, [partnerTickets, statusFilter, searchQuery]);
+
   function handlePartnerChange(partnerId: string) {
     setActivePartnerId(partnerId);
     if (typeof window !== "undefined") {
@@ -106,9 +190,14 @@ function PartnerServicesContent() {
     }
   }
 
+  function handleResetFilters() {
+    setSearchQuery("");
+    setStatusFilter("ALL");
+  }
+
   async function handleConfirmReceived(ticket: ServiceTicket) {
     const ok = window.confirm(
-      `Konfirmasi unit ${ticket.ticketNo} sudah diterima di toko mitra?`,
+      `Konfirmasi unit ${ticket.ticketNo} (${ticket.deviceName}) sudah diterima di toko mitra?`,
     );
     if (!ok) return;
     try {
@@ -156,7 +245,7 @@ function PartnerServicesContent() {
 
   async function handleSendReturn(ticket: ServiceTicket) {
     const ok = window.confirm(
-      `Kirim balik unit ${ticket.ticketNo} ke toko utama?`,
+      `Kirim balik unit ${ticket.ticketNo} (${ticket.deviceName}) ke toko utama?`,
     );
     if (!ok) return;
     try {
@@ -169,27 +258,35 @@ function PartnerServicesContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="border-b border-slate-200 bg-white px-6 py-5 shadow-sm">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+      {/* Header Portal Mitra */}
+      <header className="border-b border-slate-200 bg-white px-4 py-5 sm:px-6 lg:px-8 shadow-sm">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">
-              Portal Mitra Servis
-            </p>
-            <h1 className="mt-1 text-xl font-bold text-slate-800">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-indigo-700 border border-indigo-200">
+                Portal Mitra Servis
+              </span>
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Akses Khusus Mitra
+              </span>
+            </div>
+            <h1 className="mt-1.5 text-2xl font-black text-slate-900 tracking-tight">
               {activePartner?.name ?? "Pilih Toko Mitra"}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Hanya menampilkan tiket servis yang ditugaskan ke mitra Anda.
+            <p className="mt-1 text-sm font-medium text-slate-600">
+              Daftar tiket dan unit servis komputer/perangkat yang ditugaskan ke mitra Anda.
             </p>
           </div>
 
-          <label className="block min-w-[220px] text-sm font-medium text-slate-600">
-            Identitas Mitra
+          <div className="min-w-[240px]">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Ganti Identitas Mitra
+            </label>
             <select
               value={activePartnerId}
               onChange={(e) => handlePartnerChange(e.target.value)}
-              className={`${INPUT_CLASS_LOCAL} mt-1.5`}
+              className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
             >
               {partners.map((partner) => (
                 <option key={partner.id} value={partner.id}>
@@ -197,101 +294,288 @@ function PartnerServicesContent() {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+        {/* Banner Galat */}
         {servicesError && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <p>{servicesError}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-900 shadow-sm">
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 text-red-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span>{servicesError}</span>
+            </div>
             <button
               type="button"
               onClick={() => void refreshServices()}
-              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+              className="rounded-xl border border-red-300 bg-white px-3.5 py-1.5 text-xs font-bold text-red-800 shadow-sm hover:bg-red-50 transition"
             >
-              Coba Lagi
+              Muat Ulang
             </button>
           </div>
         )}
 
+        {/* Loading Indicator */}
         {(partnersLoading || servicesLoading) && (
-          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
-            Memuat data...
+          <div className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm font-bold text-indigo-900 shadow-sm">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700" />
+            <span>Memuat data tiket servis mitra...</span>
           </div>
         )}
 
-        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Area terisolasi: data servis internal, transaksi penjualan, dan
-          informasi keuangan toko utama tidak ditampilkan di portal ini.
+        {/* Notice Area Terisolasi */}
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-950 shadow-sm">
+          <svg className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <strong className="font-bold text-amber-950">Area Terisolasi:</strong> Informasi transaksi penjualan,
+            keuangan kas toko, dan servis internal terlindungi dan tidak ditampilkan di portal ini.
+          </div>
         </div>
 
+        {/* Warning Komplain Jika Ada */}
         {partnerTickets.some((t) => t.isComplaint) && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <p className="font-semibold">Ada unit komplain / garansi di daftar Anda</p>
-            <p className="mt-1">
-              Pastikan tidak ada klaim ongkos ganda untuk unit berlabel merah.
-            </p>
+          <div className="flex items-start gap-3 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm font-medium text-red-950 shadow-sm">
+            <svg className="h-5 w-5 text-red-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="font-bold text-red-950">Ada Unit Servis Komplain / Garansi Ulang</p>
+              <p className="mt-0.5 text-red-900">
+                Periksa tiket dengan penanda merah. Pastikan tidak ada klaim ongkos ganda kecuali penggantian komponen baru yang disetujui toko utama.
+              </p>
+            </div>
           </div>
         )}
 
-        <div className={TABLE_WRAPPER_CLASS}>
-          <table className={TABLE_CLASS}>
-            <thead className={TABLE_HEAD_CLASS}>
+        {/* Kotak Pencarian & Filter Status */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Input Pencarian Nama Item / Perangkat */}
+            <div className="relative flex-1">
+              <label htmlFor="search-item-input" className="sr-only">
+                Cari Nama Item atau Perangkat
+              </label>
+              <input
+                id="search-item-input"
+                type="text"
+                placeholder="Cari berdasarkan nama item, perangkat, nomor tiket, atau pelanggan..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-9 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+              />
+              <svg
+                className="absolute left-3.5 top-3 h-4 w-4 text-slate-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  title="Hapus pencarian"
+                  className="absolute right-3 top-2.5 rounded-full p-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
+                >
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Total Count Ringkas */}
+            <div className="shrink-0 text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3.5 py-2.5 rounded-xl text-center sm:text-right">
+              Menampilkan <span className="text-indigo-700">{filteredTickets.length}</span> dari{" "}
+              <span className="text-slate-900">{partnerTickets.length}</span> unit
+            </div>
+          </div>
+
+          {/* Filter Status Pills */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 mr-1">
+              Filter Status:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter("ALL")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                statusFilter === "ALL"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+              }`}
+            >
+              Semua ({filterCounts.all})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter("IN_TRANSIT")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                statusFilter === "IN_TRANSIT"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+              }`}
+            >
+              <span>Perlu Dikonfirmasi</span>
+              <span className="rounded-full bg-indigo-100 px-1.5 py-0.2 text-[10px] font-extrabold text-indigo-800">
+                {filterCounts.inTransit}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter("RECEIVED_BY_PARTNER")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                statusFilter === "RECEIVED_BY_PARTNER"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+              }`}
+            >
+              <span>Dalam Pengerjaan</span>
+              <span className="rounded-full bg-blue-100 px-1.5 py-0.2 text-[10px] font-extrabold text-blue-800">
+                {filterCounts.received}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter("REPAIRED")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                statusFilter === "REPAIRED"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+              }`}
+            >
+              <span>Selesai Dikerjakan</span>
+              <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[10px] font-extrabold text-emerald-800">
+                {filterCounts.repaired}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter("COMPLAINT")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                statusFilter === "COMPLAINT"
+                  ? "bg-rose-600 text-white shadow-sm"
+                  : "bg-rose-50 text-rose-800 hover:bg-rose-100"
+              }`}
+            >
+              <span>Garansi / Komplain</span>
+              <span className="rounded-full bg-rose-200 px-1.5 py-0.2 text-[10px] font-extrabold text-rose-900">
+                {filterCounts.complaint}
+              </span>
+            </button>
+
+            {(searchQuery || statusFilter !== "ALL") && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="ml-auto text-xs font-bold text-indigo-700 hover:text-indigo-900 underline underline-offset-2 transition"
+              >
+                Reset Filter
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Tabel Data Tiket Servis Mitra */}
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full text-left text-sm text-slate-800">
+            <thead className="bg-slate-100/90 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-700">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Tiket
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Pelanggan
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Perangkat & Keluhan
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-400">
-                  Biaya Mitra
-                </th>
-                <th className="px-4 py-3 text-right font-medium text-slate-400">
-                  Aksi Cepat
-                </th>
+                <th className="px-4 py-3.5 text-left">No. Tiket</th>
+                <th className="px-4 py-3.5 text-left">Pelanggan</th>
+                <th className="px-4 py-3.5 text-left">Nama Item & Keluhan</th>
+                <th className="px-4 py-3.5 text-left">Status Servis</th>
+                <th className="px-4 py-3.5 text-right">Biaya Mitra</th>
+                <th className="px-4 py-3.5 text-center">Aksi Cepat</th>
               </tr>
             </thead>
-            <tbody className={TABLE_BODY_CLASS}>
+            <tbody className="divide-y divide-slate-100 bg-white">
               {servicesLoading ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-10 text-center text-slate-500"
-                  >
-                    Memuat data...
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-semibold text-slate-600">
+                    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent mr-2 align-middle" />
+                    Memuat data servis...
                   </td>
                 </tr>
               ) : partnerTickets.length === 0 ? (
+                /* Empty state: Belum ada tiket di mitra ini */
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-10 text-center text-slate-500"
-                  >
-                    Belum ada tiket servis untuk mitra ini.
+                  <td colSpan={6} className="px-4 py-14 text-center">
+                    <svg
+                      className="mx-auto h-12 w-12 text-slate-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                      />
+                    </svg>
+                    <p className="mt-3 text-base font-bold text-slate-800">
+                      Belum Ada Tiket Servis
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-600">
+                      Belum ada perangkat servis yang ditugaskan ke mitra ini oleh toko utama.
+                    </p>
+                  </td>
+                </tr>
+              ) : filteredTickets.length === 0 ? (
+                /* Empty state: Hasil pencarian / filter kosong */
+                <tr>
+                  <td colSpan={6} className="px-4 py-14 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <p className="mt-3 text-base font-bold text-slate-800">
+                      Item atau Tiket Tidak Ditemukan
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-600 max-w-md mx-auto">
+                      Tidak ada hasil yang sesuai dengan kata kunci{" "}
+                      {searchQuery ? <strong className="text-slate-900 font-bold">"{searchQuery}"</strong> : "filter"}
+                      {statusFilter !== "ALL" ? ` pada kategori status tersebut.` : "."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Reset Filter & Tampilkan Semua
+                    </button>
                   </td>
                 </tr>
               ) : (
-                partnerTickets.map((ticket) => (
+                filteredTickets.map((ticket) => (
                   <tr
                     key={ticket.id}
-                    className={`hover:bg-slate-50 ${
-                      ticket.isComplaint ? "bg-red-50/50" : ""
+                    className={`transition-colors hover:bg-slate-50/80 ${
+                      ticket.isComplaint ? "bg-red-50/40" : ""
                     }`}
                   >
-                    <td className="px-4 py-3">
-                      <p className="font-mono font-semibold text-indigo-700">
+                    {/* No. Tiket */}
+                    <td className="px-4 py-3.5 align-top">
+                      <p className="font-mono font-bold text-indigo-700 text-sm">
                         {ticket.ticketNo}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs font-medium text-slate-600 mt-0.5">
                         {formatTimestamp(ticket.updatedAt)}
                       </p>
                       {ticket.isComplaint && (
@@ -300,64 +584,82 @@ function PartnerServicesContent() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-200">
+
+                    {/* Pelanggan */}
+                    <td className="px-4 py-3.5 align-top">
+                      <p className="font-bold text-slate-900 text-sm">
                         {ticket.customerName}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs font-medium text-slate-600 mt-0.5">
                         {ticket.customerPhone}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="text-slate-200">{ticket.deviceName}</p>
+
+                    {/* Nama Item / Perangkat & Keluhan */}
+                    <td className="px-4 py-3.5 align-top max-w-xs">
+                      <p className="font-bold text-slate-900 text-sm">
+                        {ticket.deviceName}
+                      </p>
                       {ticket.serialNumber && (
-                        <p className="font-mono text-xs text-slate-500">
-                          {ticket.serialNumber}
+                        <p className="mt-0.5 inline-block font-mono text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
+                          SN: {ticket.serialNumber}
                         </p>
                       )}
-                      <p className="mt-1 text-xs text-slate-500">
-                        {ticket.problem}
+                      <p className="mt-1 text-xs font-medium text-slate-700 leading-relaxed">
+                        <strong className="text-slate-800">Keluhan:</strong> {ticket.problem}
                       </p>
                       {ticket.workNotes?.trim() && (
-                        <p className="mt-1 line-clamp-2 text-xs text-indigo-600">
-                          Catatan mitra: {ticket.workNotes}
-                        </p>
+                        <div className="mt-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 p-2 text-xs font-semibold text-indigo-900">
+                          Catatan Mitra: {ticket.workNotes}
+                        </div>
                       )}
                       {ticket.isComplaint && getComplaintWarning(ticket) && (
-                        <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-[11px] font-medium text-red-200">
+                        <div className="mt-2 rounded-xl border border-red-300 bg-red-50 p-2 text-xs font-bold text-red-900">
                           {getComplaintWarning(ticket)}
-                        </p>
+                        </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${SERVICE_STATUS_BADGE[ticket.status]}`}
-                      >
-                        {SERVICE_STATUS_LABEL[ticket.status]}
-                      </span>
-                      {ticket.partnerStatus && (
+
+                    {/* Status Servis & Mitra */}
+                    <td className="px-4 py-3.5 align-top space-y-1.5">
+                      <div>
                         <span
-                          className={`ml-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${PARTNER_STATUS_BADGE[ticket.partnerStatus]}`}
+                          className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${SERVICE_STATUS_BADGE[ticket.status]}`}
                         >
-                          {PARTNER_STATUS_LABEL[ticket.partnerStatus]}
+                          {SERVICE_STATUS_LABEL[ticket.status]}
                         </span>
+                      </div>
+                      {ticket.partnerStatus && (
+                        <div>
+                          <span
+                            className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${PARTNER_STATUS_BADGE[ticket.partnerStatus]}`}
+                          >
+                            {PARTNER_STATUS_LABEL[ticket.partnerStatus]}
+                          </span>
+                        </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {formatRupiah(ticket.partnerFee)}
+
+                    {/* Biaya Mitra */}
+                    <td className="px-4 py-3.5 align-top text-right">
+                      <p className="font-extrabold text-slate-900 text-base">
+                        {formatRupiah(ticket.partnerFee)}
+                      </p>
                       {ticket.isComplaint && (
-                        <p className="mt-1 text-[11px] text-red-300">
-                          Garansi — cek ongkos ganda
+                        <p className="mt-1 text-xs font-bold text-red-700">
+                          Garansi (Cek Ongkos)
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col items-end gap-1.5">
+
+                    {/* Aksi Cepat */}
+                    <td className="px-4 py-3.5 align-top">
+                      <div className="flex flex-col items-center gap-2">
                         {ticket.partnerStatus === "IN_TRANSIT" && (
                           <button
                             type="button"
                             onClick={() => handleConfirmReceived(ticket)}
-                            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500"
+                            className="w-full rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
                           >
                             Konfirmasi Terima Unit
                           </button>
@@ -369,7 +671,7 @@ function PartnerServicesContent() {
                           <button
                             type="button"
                             onClick={() => openFeeModal(ticket)}
-                            className="rounded-lg border border-slate-600 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-sm hover:bg-slate-100 hover:border-slate-400 transition"
                           >
                             Update Catatan & Biaya
                           </button>
@@ -380,9 +682,9 @@ function PartnerServicesContent() {
                           <button
                             type="button"
                             onClick={() => handleSendReturn(ticket)}
-                            className="rounded-lg bg-orange-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-orange-500"
+                            className="w-full rounded-xl bg-orange-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-orange-700 transition"
                           >
-                            Kirim Balik ke Toko Utama
+                            Kirim Balik ke Toko
                           </button>
                         )}
                       </div>
@@ -395,6 +697,7 @@ function PartnerServicesContent() {
         </div>
       </main>
 
+      {/* Modal Dialog: Update Catatan, Biaya & Status */}
       {feeModalTicket && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -402,31 +705,47 @@ function PartnerServicesContent() {
           aria-modal="true"
           aria-labelledby="partner-fee-title"
         >
+          {/* Backdrop */}
           <button
             type="button"
             aria-label="Tutup modal"
-            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => setFeeModalTicket(null)}
           />
 
-          <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="border-b border-slate-800 px-5 py-4">
-              <h2
-                id="partner-fee-title"
-                className="text-lg font-semibold text-white"
+          {/* Modal Container (Clean Light Theme) */}
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="border-b border-slate-200 bg-slate-50/80 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2
+                  id="partner-fee-title"
+                  className="text-lg font-bold text-slate-900"
+                >
+                  Update Catatan & Biaya Servis
+                </h2>
+                <p className="text-xs font-semibold text-indigo-700 mt-0.5">
+                  Tiket: {feeModalTicket.ticketNo} &bull; {feeModalTicket.deviceName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFeeModalTicket(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
               >
-                Update Catatan, Biaya & Status
-              </h2>
-              <p className="text-sm text-slate-400">{feeModalTicket.ticketNo}</p>
+                <span className="sr-only">Tutup</span>
+                &times;
+              </button>
             </div>
 
-            <div className="space-y-4 px-5 py-4">
+            {/* Modal Body */}
+            <div className="space-y-4 px-6 py-5">
               {feeModalTicket.isComplaint && (
                 <div className="space-y-2">
                   <ComplaintBadgeLocal />
-                  <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-                    <p className="font-semibold text-red-100">
-                      Peringatan Anti Double-Payment
+                  <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs font-medium text-red-950">
+                    <p className="font-bold text-red-950">
+                      Peringatan Garansi / Anti Double-Payment:
                     </p>
                     <p className="mt-0.5">
                       {getComplaintWarning(feeModalTicket)}
@@ -435,33 +754,46 @@ function PartnerServicesContent() {
                 </div>
               )}
 
-              <label className="block text-sm text-slate-400">
-                Ongkos Servis Mitra (Rp)
+              {/* Input Ongkos Servis Mitra */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Ongkos Servis Mitra (Rp)
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
+                  placeholder="0"
                   value={partnerFeeInput}
                   onChange={(e) => setPartnerFeeInput(e.target.value)}
-                  className={`${INPUT_CLASS_LOCAL} mt-1.5`}
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
-                {feeModalTicket.isComplaint && (
-                  <span className="mt-1 block text-xs text-red-300">
-                    Unit garansi — isi Rp 0 kecuali ada komponen tambahan yang
-                    disetujui toko utama.
+                {feeModalTicket.isComplaint ? (
+                  <span className="mt-1 block text-xs font-semibold text-red-700">
+                    Unit garansi — isi Rp 0 kecuali ada komponen tambahan yang disetujui toko utama.
+                  </span>
+                ) : (
+                  <span className="mt-1 block text-xs font-medium text-slate-600">
+                    Nominal tagihan pengerjaan yang akan dibayarkan toko utama ke mitra.
                   </span>
                 )}
-              </label>
-              <label className="block text-sm text-slate-400">
-                Catatan Pengerjaan / Diagnosa Mitra
+              </div>
+
+              {/* Catatan Pengerjaan */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Catatan Pengerjaan / Diagnosa Mitra
+                </label>
                 <textarea
                   rows={4}
                   value={diagnosisNote}
                   onChange={(e) => setDiagnosisNote(e.target.value)}
-                  placeholder="Diagnosa, sparepart, catatan tambahan…"
-                  className={`${INPUT_CLASS} mt-1.5 resize-y`}
+                  placeholder="Tuliskan hasil diagnosa, sparepart yang diganti, atau kendala pengerjaan..."
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 resize-y"
                 />
-              </label>
-              <label className="flex items-start gap-2 text-sm text-slate-300">
+              </div>
+
+              {/* Checkbox Retur Komplain */}
+              <label className="flex items-start gap-2.5 text-sm font-semibold text-slate-800 cursor-pointer p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition">
                 <input
                   type="checkbox"
                   checked={markComplaintReturn}
@@ -470,41 +802,46 @@ function PartnerServicesContent() {
                     setMarkComplaintReturn(checked);
                     if (checked) setMarkRepaired(false);
                   }}
-                  className="mt-0.5 rounded border-slate-600 bg-slate-950 text-red-500"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
                 />
-                <span>
-                  Retur komplain ke toko
-                  <span className="mt-0.5 block text-xs text-slate-500">
-                    Bisa dicatat langsung tanpa menunggu status selesai.
+                <div>
+                  <span className="block text-slate-900">Retur komplain ke toko utama</span>
+                  <span className="block text-xs font-medium text-slate-600 mt-0.5">
+                    Gunakan jika unit tidak bisa diselesaikan atau harus dikembalikan langsung ke toko.
                   </span>
-                </span>
+                </div>
               </label>
-              <label className="flex items-center gap-2 text-sm text-slate-300">
+
+              {/* Checkbox Selesai Diperbaiki */}
+              <label className="flex items-center gap-2.5 text-sm font-semibold text-slate-800 cursor-pointer p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition">
                 <input
                   type="checkbox"
                   checked={markRepaired}
                   disabled={markComplaintReturn}
                   onChange={(e) => setMarkRepaired(e.target.checked)}
-                  className="rounded border-slate-600 bg-slate-950 text-cyan-600 disabled:opacity-50"
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
                 />
-                Tandai unit selesai diperbaiki
+                <span className={markComplaintReturn ? "text-slate-400" : "text-slate-900"}>
+                  Tandai unit sudah selesai diperbaiki
+                </span>
               </label>
             </div>
 
-            <div className="flex gap-3 border-t border-slate-800 px-5 py-4">
+            {/* Modal Footer */}
+            <div className="flex gap-3 border-t border-slate-200 bg-slate-50/80 px-6 py-4">
               <button
                 type="button"
                 onClick={() => setFeeModalTicket(null)}
-                className="flex-1 rounded-xl border border-slate-700 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800"
+                className="flex-1 rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-100 transition"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={handleSaveFee}
-                className="flex-1 rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500"
+                className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-sm font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-700 transition"
               >
-                Simpan
+                Simpan Perubahan
               </button>
             </div>
           </div>
@@ -518,7 +855,8 @@ export default function PartnerServicesPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-700 font-bold text-sm">
+          <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent mr-2.5" />
           Memuat portal mitra…
         </div>
       }
